@@ -1,0 +1,72 @@
+[
+ {
+  "clave": "LISR",
+  "nombre": "Ley del Impuesto sobre la Renta",
+  "corto": "LISR",
+  "url": "https://www.diputados.gob.mx/LeyesBiblio/doc/LISR.doc",
+  "publicacion": "11 de diciembre de 2013",
+  "ultima_reforma": "01-04-2024",
+  "num_articulos": 236,
+  "generado": "2026-07-28"
+ },
+ {
+  "clave": "RLISR",
+  "nombre": "Reglamento de la Ley del Impuesto sobre la Renta",
+  "corto": "Reglamento LISR",
+  "url": "https://www.diputados.gob.mx/LeyesBiblio/regley/Reg_LISR_060516.doc",
+  "publicacion": "8 de octubre de 2015",
+  "ultima_reforma": "06-05-2016",
+  "num_articulos": 313,
+  "generado": "2026-07-28"
+ },
+ {
+  "clave": "CFF",
+  "nombre": "Código Fiscal de la Federación",
+  "corto": "CFF",
+  "url": "https://www.diputados.gob.mx/LeyesBiblio/doc/CFF.doc",
+  "publicacion": "31 de diciembre de 1981",
+  "ultima_reforma": "09-04-2026",
+  "num_articulos": 421,
+  "generado": "2026-07-28"
+ },
+ {
+  "clave": "RCFF",
+  "nombre": "Reglamento del Código Fiscal de la Federación",
+  "corto": "Reglamento CFF",
+  "url": "https://www.diputados.gob.mx/LeyesBiblio/regley/Reg_CFF.doc",
+  "publicacion": "2 de abril de 2014",
+  "ultima_reforma": null,
+  "num_articulos": 113,
+  "generado": "2026-07-28"
+ },
+ {
+  "clave": "LIVA",
+  "nombre": "Ley del Impuesto al Valor Agregado",
+  "corto": "LIVA",
+  "url": "https://www.diputados.gob.mx/LeyesBiblio/doc/LIVA.doc",
+  "publicacion": "29 de diciembre de 1978",
+  "ultima_reforma": "12-11-2021",
+  "num_articulos": 80,
+  "generado": "2026-07-28"
+ },
+ {
+  "clave": "RLIVA",
+  "nombre": "Reglamento de la Ley del Impuesto al Valor Agregado",
+  "corto": "Reglamento LIVA",
+  "url": "https://www.diputados.gob.mx/LeyesBiblio/regley/Reg_LIVA_250914.doc",
+  "publicacion": "4 de diciembre de 2006",
+  "ultima_reforma": "25-09-2014",
+  "num_articulos": 84,
+  "generado": "2026-07-28"
+ },
+ {
+  "clave": "LIF",
+  "nombre": "Ley de Ingresos de la Federación para el Ejercicio Fiscal de 2026",
+  "corto": "LIF 2026",
+  "url": "https://www.diputados.gob.mx/LeyesBiblio/doc/LIF_2026.doc",
+  "publicacion": "7 de noviembre de 2025",
+  "ultima_reforma": null,
+  "num_articulos": 34,
+  "generado": "2026-07-28"
+ }
+]

@@ -1,0 +1,22 @@
+Reporte de validación — 2026-07-28
+
+[LISR]
+  236 artículos + 9 bloques de transitorios
+
+[RLISR]
+  313 artículos + 2 bloques de transitorios
+
+[CFF]
+  421 artículos + 48 bloques de transitorios
+
+[RCFF]
+  113 artículos + 1 bloques de transitorios
+
+[LIVA]
+  80 artículos + 48 bloques de transitorios
+
+[RLIVA]
+  84 artículos + 2 bloques de transitorios
+
+[LIF]
+  34 artículos + 1 bloques de transitorios
