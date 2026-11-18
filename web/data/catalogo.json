@@ -1,0 +1,22 @@
+[
+ {
+  "siglas": "LISR",
+  "nombre": "Ley del Impuesto sobre la Renta",
+  "tipo": "ley",
+  "materia": [
+   "Fiscal",
+   "Legislación fiscal"
+  ],
+  "estatus": "vigente",
+  "publicacion": "2013-12-11",
+  "ultima_reforma": "2024-04-01",
+  "fuente": "https://www.diputados.gob.mx/LeyesBiblio/pdf/LISR.pdf",
+  "fuente_doc": "https://www.diputados.gob.mx/LeyesBiblio/doc/LISR.doc",
+  "ley_padre": null,
+  "reglamento": "RLISR",
+  "generado": "2026-11-18",
+  "num_articulos": 236,
+  "num_transitorios": 9,
+  "archivo": "LISR.json"
+ }
+]
