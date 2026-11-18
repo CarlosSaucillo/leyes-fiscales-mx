@@ -14,7 +14,7 @@ el texto con validez oficial es el publicado en el DOF.
 |---|---|---|
 | 1 | Extractor corregido + interfaz web con la LISR | ✅ |
 | 2 | Pestañas, historial, notas, copiar con cita, ir directo (LISR 27), correlaciones manuales | ✅ |
-| 3 | RLISR, CFF, RCFF, LIVA, RLIVA, LIF 2026 y 2027 + hipervínculos automáticos | pendiente |
+| 3 | RLISR, CFF, RCFF, LIVA, RLIVA, LIF 2026 y 2027 + hipervínculos automáticos | ✅ |
 | 4 | RMF 2026 y versiones anticipadas | pendiente |
 | 5 | Fechas de reforma por artículo y comparación de versiones | pendiente |
 
@@ -41,12 +41,21 @@ python3 -m http.server 8000 -d web
 - **Sugerir correlación:** vincula dos artículos. Para compartirlas con la oficina: *Mis notas → Exportar correlaciones para la oficina*
   y reemplazar `web/data/correlaciones_manuales.json`.
 
+## Hipervínculos entre artículos
+
+`scripts/referencias.py` convierte en enlaces las referencias que **nombran el ordenamiento**:
+«artículo 27 de esta Ley», «del Código Fiscal de la Federación», «de la Ley» (dentro de un
+reglamento → su ley), «de la misma» (→ la ley nombrada antes). Nunca liga por coincidencia de
+número, ni referencias a versiones anteriores («…que se abroga», «vigente hasta 2013»).
+Lo que no se pudo resolver queda en `web/data/reportes/referencias_no_resueltas.csv` (se abre en Excel).
+
 ## Estructura
 
 ```
 scripts/build_data.py            extractor: .doc oficial → JSON (+ validación)
 scripts/imagenes_oficiales.json  ubicación de tarifas/fórmulas que el documento oficial publica como imagen
 scripts/pdf_a_texto.swift        lector de PDF (macOS) para cotejar contra el PDF oficial
+scripts/referencias.py           detector de referencias entre artículos (hipervínculos)
 web/                             la página (lo que se publica)
 web/data/catalogo.json           metadatos de cada ley
 web/data/<SIGLAS>.json           una ley por archivo: metadatos, estructura y artículos
@@ -60,6 +69,7 @@ streamlit_app.py, data/          versión anterior (Streamlit); se retira al apr
 
 ```bash
 python3 scripts/build_data.py --solo LISR --descargar --pdf
+# o todas:  python3 scripts/build_data.py --descargar --pdf
 ```
 
 - `--descargar` baja el documento vigente de LeyesBiblio.

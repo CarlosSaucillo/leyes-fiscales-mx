@@ -11,6 +11,7 @@ Reporte de validación — LISR — 2026-11-18
   artículos con letra/Bis (21): 4-A, 4-B, 74-A, 74-B, 76-A, 77-A, 82-Bis, 82-Ter, 82-Quáter, 96-Bis, 113-A, 113-B, 113-C, 113-D, 113-E, 113-F, 113-G, 113-H, 113-I, 113-J, 183-Bis
 ✓ ningún artículo contiene transitorios o decretos
 ✓ decretos de reforma: 8 bloques / 8 encabezados 'DECRETO' en la fuente
+✓ sin residuos de códigos de Word
   revisar a mano (> 5× la mediana de 2,582 car.): 5 (17,190 car.), 27 (27,970 car.), 28 (37,232 car.), 76 (13,072 car.), 78 (14,059 car.), 93 (21,752 car.), 129 (16,548 car.), 151 (13,892 car.), 161 (16,610 car.), 166 (17,970 car.), 176 (16,222 car.), 177 (13,130 car.), 182 (12,993 car.)
   publicación: 2013-12-11 · última reforma: 2024-04-01 · artículos con fecha de reforma: 126
 ✓ cotejo con PDF oficial: los 236 artículos aparecen palabra por palabra en el PDF

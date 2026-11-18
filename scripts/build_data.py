@@ -304,6 +304,9 @@ def extraer_imagenes(siglas: str) -> list[bytes]:
     return imgs
 
 
+RE_HYPERLINK = re.compile(r'HYPERLINK\s+(?:"[^"]*"\s*)?(?:\\l\s*"[^"]*"\s*)?', re.I)
+RE_RESIDUO_WORD = re.compile(r'HYPERLINK|MERGEFORMAT|INCLUDEPICTURE|EMBED Word|^import "http', re.I)
+
 RE_NOTA_LINEA = re.compile(r"^\S.{0,200}(reformad|adicionad|derogad|recorrid)\w*.*DOF\s+\d{2}-\d{2}-\d{4}", re.I)
 
 
@@ -347,7 +350,7 @@ def insertar_imagenes(siglas: str, lineas: list[str]) -> tuple[list[str], list[s
             k = sig + 1
         nombre = f"{siglas}-{n:02d}.png"
         (IMAGENES_SALIDA / nombre).write_bytes(imgs[n - 1])
-        lineas[k:k] = ["", f"[[imagen:img/{nombre}|{c['alt']}]]", ""]
+        lineas[k:k] = ["", f"[[imagen:img/{nombre}|{c['alt']}{'|chica' if c.get('chica') else ''}]]", ""]
     colocadas = sum(1 for c in config if not c.get("omitir")) - sum(1 for a in avisos if a.startswith("⚠ imagen"))
     avisos.insert(0, f"{'✓' if not any(a.startswith('⚠') for a in avisos) else '⚠'} imágenes oficiales: "
                      f"{len(imgs)} en el documento, {colocadas} colocadas, "
@@ -617,6 +620,12 @@ def validar(datos: dict, diag: dict, lineas: list[str]) -> list[str]:
     r.append(f"{'✓' if decretos_fuente == decretos_bloques else '⚠'} decretos de reforma: "
              f"{decretos_bloques} bloques / {decretos_fuente} encabezados 'DECRETO' en la fuente")
 
+    # 3b. Residuos de códigos internos de Word que no son texto de la ley
+    residuos = [u["numero"] for u in datos["unidades"]
+                if any(RE_RESIDUO_WORD.search(l) for l in u["texto"].split("\n"))]
+    r.append(f"⚠ residuos de códigos de Word en: {residuos}" if residuos
+             else "✓ sin residuos de códigos de Word")
+
     # 4. Vacíos y tamaños anómalos
     vacios = [u["numero"] for u in arts if not u["texto"]]
     if vacios:
@@ -644,8 +653,13 @@ def _norm_cotejo(s: str) -> str:
     s = unicodedata.normalize("NFKC", s)
     s = re.sub(r"\[\[imagen:[^\]]*\]\]|\|", " ", s)
     s = re.sub(r"[^\wáéíóúüñÁÉÍÓÚÜÑ%$.,;:()-]+", " ", s)
-    s = re.sub(r"-\s+", "-", s)              # guiones de corte de línea del PDF
+    s = re.sub(r"\s*-\s+|\s+-", "-", s)      # guiones de corte de línea / "5o. -D" del PDF
     return re.sub(r"\s+", " ", s).strip().lower()
+
+
+# El lector de PDF separa las etiquetas de listas numeradas ("I. II. Que…"), así que
+# el cotejo compara cada párrafo sin su etiqueta de fracción/inciso/numeral.
+RE_ETIQUETA_LISTA = re.compile(r"^(?:[IVXLC]+\.|[a-zñ]\)|\d{1,2}\.)\s+")
 
 
 def verificar_pdf(siglas: str, datos: dict) -> list[str]:
@@ -665,21 +679,22 @@ def verificar_pdf(siglas: str, datos: dict) -> list[str]:
         except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
             return ["⚠ no se pudo leer el PDF oficial (requiere 'swift' de macOS); verificación omitida"]
     lineas = txt.read_text(encoding="utf-8").splitlines()
-    # Encabezados y pies de página: renglones que se repiten en al menos la mitad de las páginas
-    # (no basta "se repite mucho": las notas "Párrafo reformado DOF…" también se repiten)
-    paginas = max((int(m.group(1)) for l in lineas if (m := re.fullmatch(r"\s*\d+ de (\d+)\s*", l))), default=0)
-    frec: dict[str, int] = {}
-    for l in lineas:
-        frec[l.strip()] = frec.get(l.strip(), 0) + 1
-    umbral = max(10, paginas // 2)
-    limpio = [l for l in lineas if not (len(l.strip()) < 120 and frec[l.strip()] >= umbral)
-              and not re.fullmatch(r"\s*\d+ de \d+\s*", l)]
+    # Encabezados y pies de página: renglones que aparecen junto al número de página ("13 de 16")
+    # en al menos la mitad de las páginas. (No basta "se repite mucho": las notas
+    # "Párrafo reformado DOF…" o "Artículo derogado DOF…" también se repiten.)
+    marcas = [k for k, l in enumerate(lineas) if re.fullmatch(r"\s*\d+ de \d+\s*", l)]
+    cerca: dict[str, int] = {}
+    for k in marcas:
+        for l in {lineas[j].strip() for j in range(max(0, k - 7), min(len(lineas), k + 8))}:
+            cerca[l] = cerca.get(l, 0) + 1
+    encabezados = {l for l, c in cerca.items() if l and len(l) < 120 and c >= max(3, len(marcas) // 2)}
+    limpio = [l for l in lineas if l.strip() not in encabezados and not re.fullmatch(r"\s*\d+ de \d+\s*", l)]
     texto_pdf = _norm_cotejo(" ".join(limpio))
     malos = []
     arts = [u for u in datos["unidades"] if u["unidad"] == "articulo"]
     for u in arts:
         for l in u["texto"].split("\n"):
-            p = _norm_cotejo(l)
+            p = _norm_cotejo(RE_ETIQUETA_LISTA.sub("", l.strip()))
             if len(p) > 20 and not l.startswith(("|", "[[")) and p not in texto_pdf:
                 malos.append(f"{u['numero']}: «{l.strip()[:80]}»")
                 break
@@ -695,9 +710,37 @@ def actualizar_catalogo() -> None:
     for siglas in NORMAS:
         f = SALIDA / f"{siglas}.json"
         if f.exists():
-            ley = json.loads(f.read_text(encoding="utf-8"))["ley"]
-            catalogo.append({k: v for k, v in ley.items() if k != "estructura"} | {"archivo": f.name})
+            datos = json.loads(f.read_text(encoding="utf-8"))
+            ley = datos["ley"]
+            # clave de URL → número oficial, para nombrar correlaciones sin descargar la ley completa
+            numeros = {u["id"][len(siglas) + 1:]: (u["numero"] if u["unidad"] != "transitorio"
+                                                   else f"Transitorios {u.get('fecha_publicacion') or ''}".strip())
+                       for u in datos["unidades"]}
+            catalogo.append({k: v for k, v in ley.items() if k != "estructura"} | {"archivo": f.name, "numeros": numeros})
     (SALIDA / "catalogo.json").write_text(json.dumps(catalogo, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def enlazar_todas() -> None:
+    """Hipervínculos entre artículos de TODAS las leyes cargadas (ver scripts/referencias.py)."""
+    sys.path.insert(0, str(RAIZ / "scripts"))
+    import referencias
+
+    leyes = {s: json.loads((SALIDA / f"{s}.json").read_text(encoding="utf-8"))
+             for s in NORMAS if (SALIDA / f"{s}.json").exists()}
+    stats, no_resueltas = referencias.enlazar(leyes)
+    for s, datos in leyes.items():
+        (SALIDA / f"{s}.json").write_text(json.dumps(datos, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    referencias.escribir_reporte(REPORTES / "referencias_no_resueltas.csv", no_resueltas)
+    print("\n=== Hipervínculos entre artículos ===")
+    motivos: dict[str, int] = {}
+    for _, _, motivo, _ in no_resueltas:
+        clave = re.sub(r"artículo \S+ no existe", "artículo no existe", motivo)
+        motivos[clave] = motivos.get(clave, 0) + 1
+    for s, st in stats.items():
+        print(f"  {s:8} {st['enlaces']:5} vínculos · {st['no_resueltas']:4} referencias sin resolver")
+    print("  Sin resolver, por motivo (detalle en reportes/referencias_no_resueltas.csv):")
+    for m, n in sorted(motivos.items(), key=lambda x: -x[1]):
+        print(f"    {n:5}  {m}")
 
 
 def main() -> None:
@@ -724,9 +767,14 @@ def main() -> None:
         lineas = convertir(siglas).read_text(encoding="utf-8").splitlines()
         lineas, avisos_tablas = insertar_tablas(lineas, convertir(siglas, "html"))
         lineas, avisos_img = insertar_imagenes(siglas, lineas)
+        # Residuos de campos de Word dentro del texto: "artículo HYPERLINK 82" → "artículo 82"
+        n_hip = sum(len(RE_HYPERLINK.findall(l)) for l in lineas)
+        if n_hip:
+            lineas = [RE_HYPERLINK.sub("", l) for l in lineas]
+            avisos_img.append(f"  residuos «HYPERLINK» de Word eliminados: {n_hip}")
         # textutil agrega al final el encabezado/pie de página de Word; no es texto de la ley
         for k in range(max(0, len(lineas) - 40), len(lineas)):
-            if re.search(r"EMBED Word\.|NUMPAGES|^PAGE\s*\d", lineas[k]):
+            if re.search(r"EMBED Word\.|NUMPAGES|^\s*PAGE\b", lineas[k]):
                 avisos_img.append(f"  encabezado/pie de página de Word eliminado ({len(lineas) - k} renglones al final)")
                 lineas = lineas[:k]
                 break
@@ -754,6 +802,7 @@ def main() -> None:
         hubo_avisos |= any(l.startswith("⚠") for l in reporte)
 
     actualizar_catalogo()
+    enlazar_todas()
     print(f"\nListo → {SALIDA.relative_to(RAIZ)}/  (reportes en {REPORTES.relative_to(RAIZ)}/)")
     if hubo_avisos:
         print("⚠ Hay avisos: revísalos contra el documento oficial antes de publicar.")

@@ -32,7 +32,7 @@ const textoNormalizado = new Map();   // id → texto sin acentos (para premiar 
 
 /** Texto "plano" para buscar: sin marcas de imagen ni separadores de tabla. */
 export const textoPlano = (t) => t
-  .replace(/\[\[imagen:[^|\]]+\|([^\]]*)\]\]/g, "$1")
+  .replace(/\[\[imagen:[^|\]]+\|([^|\]]*)(?:\|[^\]]*)?\]\]/g, "$1")
   .replace(/^\|\s?|\s?\|$/gm, "")
   .replace(/ \| /g, " · ");
 

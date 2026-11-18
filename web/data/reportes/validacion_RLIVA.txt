@@ -1,0 +1,16 @@
+Reporte de validación — RLIVA — 2026-11-18
+
+84 artículos + 2 bloques de transitorios/decretos
+✓ tablas reconstruidas: 1 de 1
+✓ imágenes oficiales: 1 en el documento, 0 colocadas, 1 omitidas (decorativas o duplicadas)
+  encabezado/pie de página de Word eliminado (19 renglones al final)
+✓ conteo independiente coincide (84 líneas 'Artículo N' = 84 extraídos + 0 filas de tabla/referencias descartadas)
+✓ sin números duplicados
+✓ secuencia completa 1–79
+  artículos con letra/Bis (5): 10-A, 22-A, 22-B, 39-A, 40-A
+✓ ningún artículo contiene transitorios o decretos
+✓ decretos de reforma: 1 bloques / 1 encabezados 'DECRETO' en la fuente
+✓ sin residuos de códigos de Word
+  revisar a mano (> 5× la mediana de 378 car.): 20 (2,736 car.), 74 (2,535 car.)
+  publicación: 2006-12-04 · última reforma: 2014-09-25 · artículos con fecha de reforma: 33
+✓ cotejo con PDF oficial: los 84 artículos aparecen palabra por palabra en el PDF

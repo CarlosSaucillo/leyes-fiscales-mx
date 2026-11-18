@@ -1,0 +1,16 @@
+Reporte de validación — LIVA — 2026-11-18
+
+80 artículos + 29 bloques de transitorios/decretos
+✓ tablas reconstruidas: 2 de 2
+✓ imágenes oficiales: 1 en el documento, 0 colocadas, 1 omitidas (decorativas o duplicadas)
+  encabezado/pie de página de Word eliminado (14 renglones al final)
+✓ conteo independiente coincide (80 líneas 'Artículo N' = 80 extraídos + 0 filas de tabla/referencias descartadas)
+✓ sin números duplicados
+✓ secuencia completa 1–43
+  artículos con letra/Bis (37): 1o.-A, 1o.-A BIS, 1o.-B, 1o.-C, 2o.-A, 2o.-B, 2o.-C, 2o.-D, 4o.-A, 4o.-B, 4o.-C, 5o.-A, 5o.-B, 5o.-C, 5o.-D, 5o.-E, 5o.-F, 18-A, 18-B, 18-C, 18-D, 18-E, 18-F, 18-G, 18-H, 18-H BIS, 18-H TER, 18-H QUÁTER, 18-H QUINTUS, 18-I, 18-J, 18-K, 18-L, 18-M, 28-A, 35-A, 35-B
+✓ ningún artículo contiene transitorios o decretos
+✓ decretos de reforma: 27 bloques / 27 encabezados 'DECRETO' en la fuente
+✓ sin residuos de códigos de Word
+  revisar a mano (> 5× la mediana de 1,220 car.): 1o.-C (7,849 car.), 2o.-A (6,255 car.), 5o (18,299 car.), 15 (12,052 car.), 32 (6,492 car.)
+  publicación: 1978-12-29 · última reforma: 2021-11-12 · artículos con fecha de reforma: 80
+✓ cotejo con PDF oficial: los 80 artículos aparecen palabra por palabra en el PDF

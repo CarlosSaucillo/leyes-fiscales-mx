@@ -1,0 +1,23 @@
+Reporte de validación — CFF — 2026-11-18
+
+421 artículos + 42 bloques de transitorios/decretos
+✓ tablas reconstruidas: 43 de 43
+✓ imágenes oficiales: 3 en el documento, 2 colocadas, 1 omitidas (decorativas o duplicadas)
+  imagen 1: renglón «gaceta.diputados.gob.mx/Gaceta/61/2009/oct/Image4.gif» corregido a «» — el renglón era un código de Word que apunta a la imagen de la fórmula; el PDF oficial muestra la fórmula
+  imagen 2: renglón «2009-10-30-1/assets/images/a.gif» corregido a «» — el renglón era un código de Word que apunta al símbolo; el PDF oficial muestra el símbolo
+  residuos «HYPERLINK» de Word eliminados: 2
+  encabezado/pie de página de Word eliminado (14 renglones al final)
+✓ conteo independiente coincide (421 líneas 'Artículo N' = 421 extraídos + 0 filas de tabla/referencias descartadas)
+✓ sin números duplicados
+✓ secuencia completa 1–263
+  artículos con letra/Bis (158): 4o.-A, 5o.-A, 14-A, 14-B, 15-A, 15-B, 15-C, 15-D, 16-A, 16-B, 16-C, 17-A, 17-B, 17-C, 17-D, 17-E, 17-F, 17-G, 17-H, 17-H Bis, 17-I, 17-J, 17-K, 17-L, 18-A, 18-B, 19-A, 20-Bis, 20-Ter, 22-A, 22-B, 22-C, 22-D, 25-A, 26-A, 29 Bis, 29-A, 29-A Bis, 29-B, 29-C, 29-D, 30-A, 30-B, 31-A, 32-A, 32-B, 32-B Bis, 32-B Ter, 32-B Quáter, 32-B Quinquies, 32-C, 32-D, 32-E, 32-F, 32-G, 32-H, 32-I, 33-A, 33-B, 34-A, 36 Bis, 40-A, 41-A, 41-B, 42-A, 42-B, 46-A, 48-A, 49 Bis, 52-A, 53-A, 53-B, 53-C, 53-D, 58-A, 66-A, 69-A, 69-B, 69-B Bis, 69-B Ter, 69-C, 69-D, 69-E, 69-F, 69-G, 69-H, 70-A, 70 Bis, 82-A, 82-B, 82-C, 82-D, 82-E, 82-F, 82-G, 82-H, 84-A, 84-B, 84-C, 84-D, 84-E, 84-F, 84-G, 84-H, 84-I, 84-J, 84-K, 84-L, 84-M, 84-N, 86-A, 86-B, 86-C, 86-D, 86-E, 86-F, 86-G, 86-H, 86-I, 86-J, 90-A, 91-A, 91-B, 91-C, 91-D, 111 Bis, 113 Bis, 114-A, 114-B, 115 Bis, 115 Ter, 124-A, 133-A, 133-B, 133-C, 133-D, 133-E, 133-F, 133-G, 141-A, 145-A, 146-A, 146-B, 146-C, 146-D, 151 Bis, 156-Bis, 156-Ter, 188-Bis, 196-A, 196-B, 208-Bis, 209 Bis, 228 Bis, 239-A, 239-B, 239-C, 258-A
+✓ ningún artículo contiene transitorios o decretos
+✓ decretos de reforma: 41 bloques / 41 encabezados 'DECRETO' en la fuente
+✓ sin residuos de códigos de Word
+  revisar a mano (> 5× la mediana de 957 car.): 14-B (10,455 car.), 17-D (6,563 car.), 17-H Bis (11,415 car.), 20 (5,673 car.), 22 (11,238 car.), 23 (10,178 car.), 26 (13,801 car.), 27 (21,220 car.), 29 (6,431 car.), 29-A (12,264 car.), 30 (8,941 car.), 31 (7,094 car.), 32-B (7,135 car.), 32-B Bis (5,414 car.), 32-D (6,531 car.), 33 (8,331 car.), 40-A (18,006 car.), 42 (11,619 car.), 46 (11,545 car.), 48 (8,096 car.), 48-A (6,984 car.), 49 Bis (7,129 car.), 52 (8,115 car.), 52-A (6,066 car.), 55 (5,967 car.), 56 (6,429 car.), 59 (4,923 car.), 66-A (6,602 car.), 67 (7,495 car.), 69 (9,265 car.), 69-B (5,764 car.), 69-B Bis (6,777 car.), 81 (12,384 car.), 82 (19,089 car.), 84 (6,400 car.), 92 (4,844 car.), 103 (10,067 car.), 105 (7,190 car.), 108 (4,821 car.), 133-A (5,015 car.), 141 (4,812 car.), 145 (9,608 car.), 156-Bis (6,677 car.), 197 (5,871 car.), 199 (7,531 car.)
+  división sin nombre en el texto oficial (línea 25): CAPITULO I
+  división sin nombre en el texto oficial (línea 648): CAPITULO UNICO
+  división sin nombre en el texto oficial (línea 1791): CAPITULO I
+  división sin nombre en el texto oficial (línea 5866): CAPÍTULO ÚNICO
+  publicación: 1981-12-31 · última reforma: 2026-04-09 · artículos con fecha de reforma: 121
+✓ cotejo con PDF oficial: los 421 artículos aparecen palabra por palabra en el PDF

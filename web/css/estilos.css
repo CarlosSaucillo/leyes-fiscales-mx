@@ -463,3 +463,16 @@ a.tarjeta:hover { border-color: var(--acento); }
   .contenido { padding: 0; }
   body { background: #fff; color: #000; }
 }
+.texto-ley .imagen-chica { height: 1.4em; width: auto; vertical-align: middle; background: #fff; border-radius: 3px; padding: 1px 3px; }
+
+/* ---------- Hipervínculos y remisiones (fase 3) ---------- */
+.texto-ley a.ref { color: var(--enlace); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--enlace) 35%, transparent); text-underline-offset: 2px; }
+.texto-ley a.ref:hover { text-decoration-color: var(--enlace); }
+.subtitulo-panel { font-size: .85rem; font-weight: 650; color: var(--texto-suave); margin: 16px 0 8px; text-transform: uppercase; letter-spacing: .04em; }
+.remisiones-ley { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; margin-bottom: 6px; }
+.remisiones-ley .siglas { font-weight: 700; color: var(--acento); font-size: .8rem; min-width: 64px; }
+.remisiones-ley a {
+  padding: 1px 8px; border-radius: 6px; font-size: .85rem; text-decoration: none;
+  background: var(--superficie); border: 1px solid var(--borde); color: var(--texto); font-variant-numeric: tabular-nums;
+}
+.remisiones-ley a:hover { border-color: var(--acento); color: var(--acento); }

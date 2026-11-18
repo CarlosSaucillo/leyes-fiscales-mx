@@ -191,7 +191,7 @@ function tarjetaLey(l) {
       <dl>
         <dt>Última reforma</dt><dd>${l.ultima_reforma ? "DOF " + fecha(l.ultima_reforma) : "Sin reformas"}</dd>
         <dt>Publicación</dt><dd>DOF ${fecha(l.publicacion)}</dd>
-        <dt>Contenido</dt><dd>${l.num_articulos} artículos · ${l.num_transitorios} bloques de transitorios</dd>
+        <dt>Contenido</dt><dd>${l.num_articulos} artículos · ${l.num_transitorios} ${l.num_transitorios === 1 ? "bloque" : "bloques"} de transitorios</dd>
       </dl>
     </a>`;
 }
@@ -293,7 +293,7 @@ const RE_NOTA_VERBO = /(reformad|adicionad|derogad|recorrid|modificad|fe de erra
 const RE_FRACCION = /^[IVXLC]+\.\s/;
 const RE_INCISO = /^[a-zñ]\)\s/;
 const RE_NUMERAL = /^\d{1,2}\.\s/;
-const RE_IMAGEN = /^\[\[imagen:([^|\]]+)\|([^\]]*)\]\]$/;
+const RE_IMAGEN = /^\[\[imagen:([^|\]]+)\|([^|\]]*)(?:\|(chica))?\]\]$/;
 
 function claseParrafo(linea) {
   if (RE_NOTA.test(linea) && RE_NOTA_VERBO.test(linea) && linea.length < 400 && !/[.;:]$/.test(linea)) return "nota-reforma";
@@ -306,9 +306,30 @@ function claseParrafo(linea) {
 
 const celdas = (l) => l.replace(/^\|\s?|\s?\|$/g, "").split(" | ");
 
-function textoHtml(texto, terminos) {
+/** Párrafo con sus hipervínculos (referencias a otros artículos) y palabras resaltadas. */
+function parrafoHtml(l, enlaces, marcar) {
+  if (!enlaces?.length) return marcar(l);
+  let html = "", pos = 0;
+  for (const [, ini, fin, destino] of enlaces) {
+    if (ini < pos) continue;
+    const [siglas, clave] = destino.split("/");
+    html += marcar(l.slice(pos, ini)) +
+      `<a class="ref" href="#/${escapar(destino)}" data-ley="${escapar(siglas)}" data-clave="${escapar(clave)}">${marcar(l.slice(ini, fin))}</a>`;
+    pos = fin;
+  }
+  return html + marcar(l.slice(pos));
+}
+
+function textoHtml(texto, terminos, enlaces = []) {
   const marcar = (s) => (terminos.length ? resaltar(s, terminos) : escapar(s));
   const lineas = texto.split("\n").map((l) => l.trim()).filter(Boolean);
+  // enlaces: [renglón, inicio, fin, "SIGLAS/clave"] → agrupados por renglón
+  const porRenglon = new Map();
+  for (const e of enlaces) {
+    if (!porRenglon.has(e[0])) porRenglon.set(e[0], []);
+    porRenglon.get(e[0]).push(e);
+  }
+  porRenglon.forEach((lista) => lista.sort((a, b) => a[1] - b[1]));
   let html = "";
   for (let i = 0; i < lineas.length; i++) {
     const l = lineas[i];
@@ -327,13 +348,17 @@ function textoHtml(texto, terminos) {
     // Imágenes oficiales (tarifas y fórmulas que el documento publica como imagen)
     const img = l.match(RE_IMAGEN);
     if (img) {
+      if (img[3]) {   // símbolo pequeño: va en línea, no como figura
+        html += `<p><img class="imagen-chica" src="data/${escapar(img[1])}" alt="${escapar(img[2])}" title="${escapar(img[2])}"></p>`;
+        continue;
+      }
       html += `<figure class="imagen-oficial">
         <img src="data/${escapar(img[1])}" alt="${escapar(img[2])}" loading="lazy">
         <figcaption>${escapar(img[2])} · imagen tomada del documento oficial</figcaption></figure>`;
       continue;
     }
     const c = claseParrafo(l);
-    html += `<p${c ? ` class="${c}"` : ""}>${marcar(l)}</p>`;
+    html += `<p${c ? ` class="${c}"` : ""}>${parrafoHtml(l, porRenglon.get(i), marcar)}</p>`;
   }
   return html;
 }
@@ -380,17 +405,38 @@ async function copiar(texto, mensaje) {
 }
 
 // ---------- Correlaciones ----------
+/** "cff-69-b" → {texto: "Art. 69-B CFF", ruta: "#/CFF/69-b"} usando el catálogo (sin descargar la ley). */
 async function etiquetaDeId(id) {
   const siglas = await leyDeId(id);
   if (!siglas) return { siglas: null, texto: id, ruta: null };
-  const ley = await cargarLey(siglas).catch(() => null);
-  const u = ley?.porId.get(id);
   const clave = id.slice(siglas.length + 1);
-  return {
-    siglas,
-    texto: u ? `${citaCorta(u, ley)}` : `${siglas} ${clave.toUpperCase()}`,
-    ruta: `#/${siglas}/${clave}`,
-  };
+  const numeros = (await infoLey(siglas))?.numeros || {};
+  const numero = numeros[clave];
+  const orden = Object.keys(numeros).indexOf(clave);   // posición en la ley, para ordenar
+  if (numero?.startsWith("Transitorios")) {
+    const f = numero.split(" ")[1];
+    return { siglas, orden, corto: f ? `Trans. DOF ${fecha(f)}` : "Transitorios",
+             texto: `Transitorios${f ? ` DOF ${fecha(f)}` : ""} ${siglas}`, ruta: `#/${siglas}/${clave}` };
+  }
+  return { siglas, orden, corto: numero || clave.toUpperCase(),
+           texto: numero ? `Art. ${numero} ${siglas}` : `${siglas} ${clave.toUpperCase()}`, ruta: `#/${siglas}/${clave}` };
+}
+
+/** Lista compacta de artículos agrupada por ley: "LISR: 9 · 27 · 28   CFF: 29 · 29-A" */
+async function listaRemisiones(ids) {
+  const catalogo = await cargarCatalogo();
+  const ordenLey = (sg) => catalogo.findIndex((l) => l.siglas === sg);
+  const etiquetas = (await Promise.all(ids.map(etiquetaDeId)))
+    .sort((a, b) => ordenLey(a.siglas) - ordenLey(b.siglas) || a.orden - b.orden);
+  const porLey = new Map();
+  etiquetas.forEach((e) => {
+    if (!porLey.has(e.siglas)) porLey.set(e.siglas, []);
+    porLey.get(e.siglas).push(e);
+  });
+  return [...porLey].map(([siglas, es]) => `
+    <div class="remisiones-ley"><span class="siglas">${escapar(siglas || "")}</span>
+      ${es.map((e) => `<a href="${escapar(e.ruta || "#/")}" title="${escapar(e.texto)}">${escapar(e.corto)}</a>`).join("")}
+    </div>`).join("");
 }
 
 async function pintarCorrelaciones(u) {
@@ -403,18 +449,25 @@ async function pintarCorrelaciones(u) {
     ...oficiales.filter(relacion).map((c) => ({ ...c, otro: relacion(c), propia: false })),
     ...propias.filter(relacion).map((c) => ({ ...c, otro: relacion(c), propia: true })),
   ];
-  if (!items.length) {
-    zona.innerHTML = `<p class="vacio">Sin correlaciones manuales. Usa «Sugerir correlación» para vincular este artículo con otro.</p>`;
-    return;
-  }
+  const remite = u.referencias || [];
+  const citado = u.citado_por || [];
   const etiquetas = await Promise.all(items.map((c) => etiquetaDeId(c.otro)));
-  zona.innerHTML = `<ul class="lista-correlaciones">${items.map((c, i) => `
-    <li>
-      <a href="${escapar(etiquetas[i].ruta || "#/")}">${escapar(etiquetas[i].texto)}</a>
-      ${c.nota ? `<span class="nota-corr">— ${escapar(c.nota)}</span>` : ""}
-      <span class="origen-corr">${c.propia ? "tuya (solo en este navegador)" : "de la oficina"}</span>
-      ${c.propia ? `<button type="button" class="quitar" data-de="${escapar(c.de)}" data-a="${escapar(c.a)}" aria-label="Quitar correlación">×</button>` : ""}
-    </li>`).join("")}</ul>`;
+  zona.innerHTML = `
+    ${remite.length ? `<h3 class="subtitulo-panel">Este artículo remite a <span class="contador">${remite.length}</span></h3>
+      ${await listaRemisiones(remite)}` : ""}
+    ${citado.length ? `<h3 class="subtitulo-panel">Remiten a este artículo <span class="contador">${citado.length}</span></h3>
+      ${await listaRemisiones(citado)}` : ""}
+    ${remite.length || citado.length ? `<p class="ayuda">Detectadas automáticamente cuando el texto dice a qué ley se refiere
+      («artículo 27 de esta Ley», «del Código Fiscal de la Federación»…).</p>` : ""}
+    <h3 class="subtitulo-panel">Correlaciones manuales</h3>
+    ${items.length ? `<ul class="lista-correlaciones">${items.map((c, i) => `
+      <li>
+        <a href="${escapar(etiquetas[i].ruta || "#/")}">${escapar(etiquetas[i].texto)}</a>
+        ${c.nota ? `<span class="nota-corr">— ${escapar(c.nota)}</span>` : ""}
+        <span class="origen-corr">${c.propia ? "tuya (solo en este navegador)" : "de la oficina"}</span>
+        ${c.propia ? `<button type="button" class="quitar" data-de="${escapar(c.de)}" data-a="${escapar(c.a)}" aria-label="Quitar correlación">×</button>` : ""}
+      </li>`).join("")}</ul>`
+      : `<p class="vacio">Ninguna. Usa «Sugerir correlación» para vincular este artículo con otro.</p>`}`;
   zona.querySelectorAll("button.quitar").forEach((b) => b.addEventListener("click", () => {
     almacen.quitarCorrelacion(b.dataset.de, b.dataset.a);
     pintarCorrelaciones(u);
@@ -539,7 +592,7 @@ async function vistaUnidad(siglas, clave, consulta) {
           <button type="button" class="accion" data-accion="vincular" title="Relaciona este artículo con otro">${ICONO.vincular} Sugerir correlación</button>
         </div>
       </header>
-      <div class="texto-ley" id="texto-ley">${textoHtml(u.texto, terminos)}</div>
+      <div class="texto-ley" id="texto-ley">${textoHtml(u.texto, terminos, u.enlaces)}</div>
       ${u.reformas.length > 1 ? `
         <details class="historial-reformas">
           <summary>Reformas a este artículo (${u.reformas.length})</summary>
@@ -778,6 +831,8 @@ $("#form-busqueda").addEventListener("submit", async (e) => {
   const { partes, params } = leerRuta();
   location.hash = rutaBusqueda(texto, partes[0] === "buscar" ? params.get("en") || "" : "");
 });
+// Al entrar al buscador se empieza a preparar el índice de todas las leyes (mientras escribes)
+campoBusqueda.addEventListener("focus", () => { cargarTodas().catch(() => {}); }, { once: true });
 campoBusqueda.addEventListener("input", () => {
   // En la página de búsqueda, los resultados se actualizan mientras escribes
   if (leerRuta().partes[0] !== "buscar") return;
