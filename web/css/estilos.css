@@ -119,9 +119,146 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   border-right: 1px solid var(--borde);
   padding: 12px 8px 40px;
 }
-.contenido { flex: 1; min-width: 0; padding: 32px 40px 80px; }
+.columna { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.contenido { flex: 1; min-width: 0; padding: 28px 40px 80px; }
 .contenido:focus { outline: none; }
 .cargando, .vacio { color: var(--texto-suave); }
+
+/* ---------- Pestañas ---------- */
+.pestanas {
+  position: sticky; top: var(--alto-barra); z-index: 15;
+  display: flex; align-items: flex-end; gap: 4px;
+  padding: 6px 12px 0; min-height: 40px;
+  background: var(--fondo-lateral); border-bottom: 1px solid var(--borde);
+}
+.lista-pestanas { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; min-width: 0; }
+.lista-pestanas::-webkit-scrollbar { display: none; }
+.pestana {
+  display: flex; align-items: center; flex-shrink: 0;
+  max-width: 200px; height: 34px;
+  border: 1px solid transparent; border-bottom: 0; border-radius: 8px 8px 0 0;
+  color: var(--texto-suave); font-size: .85rem;
+}
+.pestana:hover { background: var(--superficie); }
+.pestana.activa {
+  background: var(--fondo); border-color: var(--borde); color: var(--texto); font-weight: 600;
+  margin-bottom: -1px; height: 35px;
+}
+.pestana-ir {
+  border: 0; background: none; cursor: pointer; padding: 0 4px 0 12px; height: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: inherit; font: inherit;
+}
+.pestana-cerrar {
+  border: 0; background: none; cursor: pointer; width: 22px; height: 22px; margin-right: 6px;
+  border-radius: 5px; color: var(--texto-tenue); font-size: 1rem; line-height: 1;
+}
+.pestana-cerrar:hover { background: var(--borde); color: var(--texto); }
+.pestana-nueva {
+  flex-shrink: 0; width: 30px; height: 30px; margin-bottom: 3px;
+  border: 0; border-radius: 7px; background: none; cursor: pointer;
+  color: var(--texto-suave); font-size: 1.25rem; line-height: 1;
+}
+.pestana-nueva:hover:not(:disabled) { background: var(--superficie); color: var(--acento); }
+.pestana-nueva:disabled { opacity: .35; cursor: default; }
+
+/* ---------- Lateral: ir a artículo y accesos ---------- */
+.ir-a { padding: 4px 8px 12px; border-bottom: 1px solid var(--borde); margin-bottom: 8px; }
+.ir-titulo { display: block; font-size: .75rem; font-weight: 650; text-transform: uppercase; letter-spacing: .06em; color: var(--texto-suave); margin-bottom: 6px; }
+.ir-fila { display: flex; gap: 6px; }
+.ir-fila select, .ir-fila input, .dialogo select, .dialogo input {
+  height: 34px; border: 1px solid var(--borde); border-radius: 7px;
+  background: var(--superficie); color: var(--texto); font: inherit; font-size: .9rem; padding: 0 8px;
+}
+.ir-fila select { flex: 0 0 auto; }
+.ir-fila input { flex: 1; min-width: 0; }
+.ir-fila input:focus, .ir-fila select:focus, .dialogo input:focus, .dialogo select:focus, textarea:focus {
+  outline: none; border-color: var(--acento); box-shadow: 0 0 0 3px var(--acento-suave);
+}
+.boton-ir {
+  height: 34px; padding: 0 12px; border: 0; border-radius: 7px; cursor: pointer;
+  background: var(--acento); color: var(--superficie); font-weight: 650;
+}
+.ir-error { color: var(--acento); font-size: .82rem; margin: 6px 0 0; }
+.accesos { display: flex; gap: 4px; padding: 0 4px 8px; border-bottom: 1px solid var(--borde); margin-bottom: 8px; }
+.accesos a {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 6px 8px; border-radius: 7px; font-size: .85rem; text-decoration: none; color: var(--texto-suave);
+}
+.accesos a:hover { background: var(--superficie); color: var(--acento); }
+.accesos svg { width: 16px; height: 16px; }
+.arbol a.con-nota::after {
+  content: ""; display: inline-block; width: 6px; height: 6px; margin-left: 4px;
+  border-radius: 50%; background: var(--acento); vertical-align: middle;
+}
+
+/* ---------- Acciones, notas y correlaciones del artículo ---------- */
+.siglas-titulo { color: var(--texto-tenue); font-weight: 500; }
+.acciones { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.accion {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 11px; border-radius: 8px; cursor: pointer; font-size: .84rem;
+  border: 1px solid var(--borde); background: var(--superficie); color: var(--texto-suave);
+}
+.accion:hover { border-color: var(--acento); color: var(--acento); }
+.accion svg { width: 16px; height: 16px; }
+.panel { margin-top: 32px; padding-top: 4px; border-top: 1px solid var(--borde); }
+.panel h2 { font-size: 1rem; margin: 18px 0 10px; }
+textarea {
+  width: 100%; resize: vertical; min-height: 90px;
+  padding: 10px 12px; border: 1px solid var(--borde); border-radius: 8px;
+  background: var(--superficie); color: var(--texto); font: inherit; font-size: .95rem; line-height: 1.5;
+}
+.estado-nota { font-size: .8rem; color: var(--texto-tenue); margin: 6px 0 0; }
+.lista-correlaciones { list-style: none; padding: 0; margin: 0; }
+.lista-correlaciones li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; padding: 6px 0; border-bottom: 1px solid var(--borde); }
+.lista-correlaciones a { font-weight: 600; }
+.nota-corr { color: var(--texto-suave); font-size: .9rem; }
+.origen-corr { margin-left: auto; font-size: .75rem; color: var(--texto-tenue); }
+.lista-correlaciones .quitar {
+  border: 0; background: none; cursor: pointer; color: var(--texto-tenue); font-size: 1.1rem; line-height: 1; padding: 0 4px;
+}
+.lista-correlaciones .quitar:hover { color: var(--acento); }
+
+/* ---------- Historial y notas ---------- */
+.lista-simple, .lista-notas { list-style: none; padding: 0; margin: 0 0 8px; max-width: 80ch; }
+.lista-simple li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 8px 0; border-bottom: 1px solid var(--borde); }
+.lista-simple a { font-weight: 600; text-decoration: none; }
+.lista-simple a:hover { text-decoration: underline; }
+.ubicacion { font-size: .82rem; color: var(--texto-tenue); }
+.cuando { margin-left: auto; font-size: .8rem; color: var(--texto-tenue); white-space: nowrap; }
+.lista-notas li { padding: 12px 0; border-bottom: 1px solid var(--borde); display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.lista-notas a { font-weight: 650; }
+.lista-notas p { flex-basis: 100%; margin: 4px 0 0; color: var(--texto-suave); white-space: normal; }
+.contador { font-size: .8rem; font-weight: 500; color: var(--texto-tenue); }
+.botonera { display: flex; flex-wrap: wrap; gap: 8px; }
+.botonera label.boton { display: inline-flex; align-items: center; }
+.ayuda { font-size: .85rem; color: var(--texto-suave); max-width: 76ch; }
+.boton:disabled { opacity: .5; cursor: default; }
+.boton.primario { background: var(--acento); border-color: var(--acento); color: var(--superficie); font-weight: 650; }
+.boton.primario:hover { color: var(--superficie); filter: brightness(1.1); }
+kbd {
+  font-family: var(--fuente-ui); font-size: .85em; padding: 1px 6px; border-radius: 5px;
+  border: 1px solid var(--borde); border-bottom-width: 2px; background: var(--superficie);
+}
+code { font-size: .88em; padding: 1px 5px; border-radius: 4px; background: var(--fondo-lateral); }
+
+/* ---------- Diálogo y aviso ---------- */
+.dialogo {
+  width: min(440px, calc(100vw - 32px)); padding: 22px 24px;
+  border: 1px solid var(--borde); border-radius: 14px;
+  background: var(--superficie); color: var(--texto); box-shadow: 0 20px 60px rgb(0 0 0 / .25);
+}
+.dialogo::backdrop { background: rgb(0 0 0 / .4); }
+.dialogo h2 { margin: 0 0 4px; font-size: 1.15rem; }
+.dialogo .campo { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.dialogo label { font-size: .85rem; color: var(--texto-suave); }
+.dialogo-botones { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.aviso {
+  position: fixed; left: 50%; bottom: 24px; z-index: 50; transform: translateX(-50%);
+  padding: 10px 18px; border-radius: 999px;
+  background: var(--texto); color: var(--fondo); font-size: .9rem; font-weight: 550;
+  box-shadow: 0 6px 24px rgb(0 0 0 / .2);
+}
 
 /* ---------- Árbol de materias ---------- */
 .arbol { font-size: .9rem; }
@@ -322,7 +459,7 @@ a.tarjeta:hover { border-color: var(--acento); }
 }
 
 @media print {
-  .barra, .lateral, .velo, .navegacion-art, .filtros { display: none !important; }
+  .barra, .lateral, .velo, .navegacion-art, .filtros, .pestanas, .acciones, .panel, .aviso { display: none !important; }
   .contenido { padding: 0; }
   body { background: #fff; color: #000; }
 }

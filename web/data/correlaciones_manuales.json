@@ -1,0 +1,4 @@
+{
+  "_descripcion": "Correlaciones entre artículos sugeridas a mano por el equipo. Se muestran a todos los usuarios del sitio. Para agregar: en el buscador, 'Mis notas' → 'Exportar correlaciones para la oficina', y reemplazar este archivo con el descargado. Formato: {de, a, nota, fecha} con ids como 'lisr-27' o 'cff-69-b'.",
+  "correlaciones": []
+}

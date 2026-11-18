@@ -6,13 +6,17 @@
 //   #/LISR/27              → artículo 27 de la LISR (lisr-27)
 //   #/LISR/27?q=deduccion  → mismo artículo con las palabras resaltadas
 //   #/buscar?q=…&en=LISR   → resultados de búsqueda
+//   #/historial, #/notas   → mis consultas recientes / mis notas y respaldo
 // Así los enlaces se pueden copiar y compartir, y el botón "atrás" funciona.
 
 import {
   cargarCatalogo, cargarLey, cargarTodas, infoLey, fecha, claveUrl,
-  tituloUnidad, tituloCorto, etiquetaDivision,
+  tituloUnidad, tituloCorto, etiquetaDivision, cargarCorrelacionesOficiales, leyDeId,
 } from "./datos.js";
 import { buscar, fragmento, resaltar, escapar, normalizar } from "./buscador.js";
+import * as almacen from "./almacen.js";
+import { iniciarPestanas, actualizarActiva } from "./pestanas.js";
+import { leerReferencia, claveArticulo } from "./ir.js";
 
 const $ = (sel, raiz = document) => raiz.querySelector(sel);
 const main = $("#contenido");
@@ -26,12 +30,20 @@ const PENDIENTES = [
   { siglas: "RCFF", nombre: "Reglamento del Código Fiscal de la Federación" },
   { siglas: "LIVA", nombre: "Ley del Impuesto al Valor Agregado" },
   { siglas: "RLIVA", nombre: "Reglamento de la Ley del Impuesto al Valor Agregado" },
-  { siglas: "LIF 2026", nombre: "Ley de Ingresos de la Federación 2026" },
-  { siglas: "LIF 2027", nombre: "Ley de Ingresos de la Federación 2027" },
+  { siglas: "LIF2026", nombre: "Ley de Ingresos de la Federación 2026" },
+  { siglas: "LIF2027", nombre: "Ley de Ingresos de la Federación 2027" },
+  { siglas: "RMF", nombre: "Resolución Miscelánea Fiscal 2026" },
 ];
 
-const ICONO_RELOJ = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
-const ICONO_DOC = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>';
+const ICONO = {
+  reloj: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  doc: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>',
+  copiar: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
+  cita: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h4v4H8a3 3 0 0 0 3 3v2a5 5 0 0 1-5-5V8zM15 7h4v4h-3a3 3 0 0 0 3 3v2a5 5 0 0 1-5-5V8z"/></svg>',
+  enlace: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1"/><path d="M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1"/></svg>',
+  vincular: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  pestana: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9h18M12 12v5M9.5 14.5h5"/></svg>',
+};
 
 const AVISO_LEGAL = `<p class="aviso-legal">Textos tomados de los documentos oficiales publicados por la Cámara de Diputados
   (<a href="https://www.diputados.gob.mx/LeyesBiblio/" target="_blank" rel="noopener">LeyesBiblio</a>).
@@ -49,20 +61,35 @@ function leerRuta() {
 async function enrutar() {
   cerrarMenu();
   const { partes, params } = leerRuta();
+  let titulo = "Inicio";
   try {
-    if (partes.length === 0) await vistaInicio();
-    else if (partes[0] === "buscar") await vistaBusqueda(params);
-    else if (partes.length === 1) await vistaLey(partes[0]);
-    else await vistaUnidad(partes[0], partes.slice(1).join("/"), params.get("q"));
+    if (partes.length === 0) titulo = await vistaInicio();
+    else if (partes[0] === "buscar") titulo = await vistaBusqueda(params);
+    else if (partes[0] === "historial") titulo = vistaHistorial();
+    else if (partes[0] === "notas") titulo = await vistaNotas();
+    else if (partes.length === 1) titulo = await vistaLey(partes[0]);
+    else titulo = await vistaUnidad(partes[0], partes.slice(1).join("/"), params.get("q"));
   } catch (e) {
     console.error(e);
+    titulo = "Error";
     main.innerHTML = `<div class="error"><strong>No se pudo mostrar esta página.</strong><br>${escapar(e.message)}</div>`;
   }
+  if (titulo) actualizarActiva(location.hash || "#/", titulo);
 }
 
 function irArriba() {
   window.scrollTo(0, 0);
   main.focus({ preventScroll: true });
+}
+
+// ---------- Aviso flotante ("Copiado") ----------
+let temporizadorAviso;
+function avisar(texto) {
+  const a = $("#aviso");
+  a.textContent = texto;
+  a.hidden = false;
+  clearTimeout(temporizadorAviso);
+  temporizadorAviso = setTimeout(() => { a.hidden = true; }, 2200);
 }
 
 // ==========================================================================
@@ -75,6 +102,7 @@ async function construirArbol() {
       <summary><span class="siglas">${escapar(l.siglas)}</span> <span>${escapar(l.nombre)}</span></summary>
       <div class="rama" data-contenido><div class="proximamente">Cargando…</div></div>
     </details>`).join("");
+  const pendientes = PENDIENTES.filter((p) => !catalogo.some((l) => l.siglas === p.siglas) && p.siglas !== "RMF");
 
   arbol.innerHTML = `
     <details class="materia" open>
@@ -83,7 +111,7 @@ async function construirArbol() {
         <details class="materia" open>
           <summary>Legislación fiscal</summary>
           <div class="rama">${leyesHtml}
-            ${PENDIENTES.map((p) => `<div class="proximamente" title="Se agregará en la fase 3">${escapar(p.siglas)} · en preparación</div>`).join("")}
+            ${pendientes.map((p) => `<div class="proximamente" title="Se agregará en la fase 3">${escapar(p.siglas)} · en preparación</div>`).join("")}
           </div>
         </details>
         <details class="materia">
@@ -95,6 +123,11 @@ async function construirArbol() {
 
   arbol.querySelectorAll("details.ley").forEach((d) =>
     d.addEventListener("toggle", () => { if (d.open) llenarRamaLey(d); }));
+
+  // Selector de ley del formulario "Ir a artículo" y del diálogo de correlaciones
+  const opciones = catalogo.map((l) => `<option value="${escapar(l.siglas)}">${escapar(l.siglas)}</option>`).join("");
+  $("#ir-ley").innerHTML = opciones;
+  $("#corr-ley").innerHTML = opciones;
 }
 
 async function llenarRamaLey(detalle) {
@@ -104,6 +137,7 @@ async function llenarRamaLey(detalle) {
   const cont = $("[data-contenido]", detalle);
   cont.innerHTML = `<a href="#/${escapar(ley.siglas)}">Índice completo</a>` +
     ley.estructura.map((n) => nodoArbol(ley, n)).join("");
+  marcarNotasEnArbol();
 }
 
 function nodoArbol(ley, nodo) {
@@ -124,6 +158,12 @@ function nodoArbol(ley, nodo) {
     </details>`;
 }
 
+/** Punto junto a los artículos que tienen nota personal. */
+function marcarNotasEnArbol() {
+  const conNota = almacen.notas();
+  arbol.querySelectorAll("a[data-id]").forEach((a) => a.classList.toggle("con-nota", Boolean(conNota[a.dataset.id])));
+}
+
 /** Marca en el árbol el artículo abierto y despliega sus ramas. */
 async function marcarEnArbol(siglas, id) {
   arbol.querySelectorAll("a.activo").forEach((a) => a.classList.remove("activo"));
@@ -141,7 +181,7 @@ async function marcarEnArbol(siglas, id) {
 }
 
 // ==========================================================================
-// Vistas
+// Vistas: inicio e índice de ley
 // ==========================================================================
 function tarjetaLey(l) {
   return `
@@ -159,12 +199,19 @@ function tarjetaLey(l) {
 async function vistaInicio() {
   document.title = "Legislación fiscal federal";
   const catalogo = await cargarCatalogo();
+  const recientes = almacen.historial().slice(0, 6);
   main.innerHTML = `
     <h1>Legislación fiscal federal</h1>
-    <p class="subtitulo">Consulta por ley, título, capítulo y artículo, o busca cualquier palabra en el texto vigente.</p>
+    <p class="subtitulo">Consulta por ley, título, capítulo y artículo, o busca cualquier palabra en el texto vigente.
+      Escribe <kbd>LISR 27</kbd> en el buscador para ir directo a un artículo.</p>
+    ${recientes.length ? `
+      <h2>Consultados recientemente</h2>
+      <ul class="lista-simple">${recientes.map(itemHistorial).join("")}</ul>
+      <p><a href="#/historial">Ver todo el historial →</a></p>
+      <h2>Ordenamientos</h2>` : ""}
     <div class="tarjetas">
       ${catalogo.map(tarjetaLey).join("")}
-      ${PENDIENTES.map((p) => `
+      ${PENDIENTES.filter((p) => !catalogo.some((l) => l.siglas === p.siglas)).map((p) => `
         <div class="tarjeta pendiente">
           <span class="siglas">${escapar(p.siglas)}</span>
           <h3>${escapar(p.nombre)}</h3>
@@ -173,6 +220,7 @@ async function vistaInicio() {
     </div>
     ${AVISO_LEGAL}`;
   irArriba();
+  return "Inicio";
 }
 
 function rangoArticulos(ley, nodo) {
@@ -207,32 +255,45 @@ function nodoIndice(ley, nodo) {
 
 async function vistaLey(siglas) {
   const info = await infoLey(siglas);
-  if (!info) throw new Error(`No existe el ordenamiento "${siglas}".`);
-  if (info.siglas !== siglas) { location.replace(`#/${info.siglas}`); return; }
+  if (!info) return noCargada(siglas);
+  if (info.siglas !== siglas) { location.replace(`#/${info.siglas}`); return null; }
   const ley = await cargarLey(info.siglas);
   document.title = `${ley.siglas} — ${ley.nombre}`;
   main.innerHTML = `
     <nav class="migas" aria-label="Ubicación"><a href="#/">Inicio</a><span class="sep">›</span><span>${escapar(ley.siglas)}</span></nav>
     <h1>${escapar(ley.nombre)}</h1>
     <div class="insignias">
-      <span class="insignia reforma">${ICONO_RELOJ} Última reforma: ${ley.ultima_reforma ? "DOF " + fecha(ley.ultima_reforma) : "sin reformas"}</span>
+      <span class="insignia reforma">${ICONO.reloj} Última reforma: ${ley.ultima_reforma ? "DOF " + fecha(ley.ultima_reforma) : "sin reformas"}</span>
       <span class="insignia">Publicada: DOF ${fecha(ley.publicacion)}</span>
       <span class="insignia">${ley.num_articulos} artículos</span>
-      <a class="insignia" href="${escapar(ley.fuente)}" target="_blank" rel="noopener">${ICONO_DOC} Texto oficial (PDF)</a>
+      <a class="insignia" href="${escapar(ley.fuente)}" target="_blank" rel="noopener">${ICONO.doc} Texto oficial (PDF)</a>
     </div>
     <h2>Índice</h2>
     <div class="indice">${ley.estructura.map((n) => nodoIndice(ley, n)).join("")}</div>
     ${AVISO_LEGAL}`;
   marcarEnArbol(ley.siglas, null);
   irArriba();
+  return ley.siglas;
 }
 
-// ---------- Texto de un artículo ----------
+/** Mensaje para siglas conocidas que aún no se cargan (o desconocidas). */
+function noCargada(siglas) {
+  const p = PENDIENTES.find((x) => x.siglas.toLowerCase() === String(siglas).toLowerCase());
+  main.innerHTML = p
+    ? `<div class="error"><strong>${escapar(p.nombre)}</strong> todavía no está cargada; se agregará en una fase siguiente.</div>`
+    : `<div class="error">No existe el ordenamiento «${escapar(siglas)}». <a href="#/">Ver los disponibles</a>.</div>`;
+  return String(siglas).toUpperCase();
+}
+
+// ==========================================================================
+// Vista de artículo
+// ==========================================================================
 const RE_NOTA = /\bDOF\s+\d{2}-\d{2}-\d{4}/;
 const RE_NOTA_VERBO = /(reformad|adicionad|derogad|recorrid|modificad|fe de erratas)/i;
 const RE_FRACCION = /^[IVXLC]+\.\s/;
 const RE_INCISO = /^[a-zñ]\)\s/;
 const RE_NUMERAL = /^\d{1,2}\.\s/;
+const RE_IMAGEN = /^\[\[imagen:([^|\]]+)\|([^\]]*)\]\]$/;
 
 function claseParrafo(linea) {
   if (RE_NOTA.test(linea) && RE_NOTA_VERBO.test(linea) && linea.length < 400 && !/[.;:]$/.test(linea)) return "nota-reforma";
@@ -243,7 +304,7 @@ function claseParrafo(linea) {
   return "";
 }
 
-const RE_IMAGEN = /^\[\[imagen:([^|\]]+)\|([^\]]*)\]\]$/;
+const celdas = (l) => l.replace(/^\|\s?|\s?\|$/g, "").split(" | ");
 
 function textoHtml(texto, terminos) {
   const marcar = (s) => (terminos.length ? resaltar(s, terminos) : escapar(s));
@@ -254,10 +315,7 @@ function textoHtml(texto, terminos) {
     // Tablas: renglones consecutivos "| celda | celda |"
     if (l.startsWith("|")) {
       const filas = [];
-      while (i < lineas.length && lineas[i].startsWith("|")) {
-        filas.push(lineas[i].replace(/^\|\s?|\s?\|$/g, "").split(" | "));
-        i++;
-      }
+      while (i < lineas.length && lineas[i].startsWith("|")) filas.push(celdas(lineas[i++]));
       i--;
       const [cabeza, ...cuerpo] = filas.length > 1 ? filas : [null, ...filas];
       html += `<div class="tabla-envoltura"><table class="tabla-ley">
@@ -280,18 +338,165 @@ function textoHtml(texto, terminos) {
   return html;
 }
 
+// ---------- Copiar con cita ----------
+/** "Art. 27 LISR" (o "Transitorios, DOF 18 nov 2015, LISR") */
+function citaCorta(u, ley) {
+  if (u.unidad === "transitorio") return `Transitorios del decreto publicado en el DOF el ${fecha(u.fecha_publicacion)}, ${ley.siglas}`;
+  if (u.unidad === "regla") return `Regla ${u.numero} ${ley.siglas}`;
+  return `Art. ${u.numero} ${ley.siglas}`;
+}
+
+function citaLarga(u, ley) {
+  const reforma = u.ultima_reforma ? `última reforma DOF ${fecha(u.ultima_reforma)}`
+    : u.unidad === "articulo" ? `sin reformas desde su publicación (DOF ${fecha(ley.publicacion)})` : "";
+  return `${citaCorta(u, ley)}${reforma ? `, ${reforma}` : ""}. Fuente: Cámara de Diputados, ${ley.nombre}, texto vigente (${u.fuente}).`;
+}
+
+/** Texto limpio para pegar en Word o correo: sin notas de reforma; tablas con tabuladores. */
+function textoParaCopiar(lineas) {
+  return lineas.map((l) => l.trim()).filter(Boolean)
+    .filter((l) => claseParrafo(l) !== "nota-reforma")
+    .map((l) => {
+      if (l.startsWith("|")) return celdas(l).join("\t");
+      const img = l.match(RE_IMAGEN);
+      return img ? `[${img[2]}: ver imagen en el documento oficial]` : l;
+    })
+    .join("\n\n");
+}
+
+async function copiar(texto, mensaje) {
+  try {
+    await navigator.clipboard.writeText(texto);
+    avisar(mensaje);
+  } catch {
+    // Respaldo para navegadores que no permiten el portapapeles moderno
+    const t = Object.assign(document.createElement("textarea"), { value: texto });
+    document.body.append(t);
+    t.select();
+    const ok = document.execCommand("copy");
+    t.remove();
+    avisar(ok ? mensaje : "No se pudo copiar: selecciona el texto y usa ⌘C / Ctrl+C");
+  }
+}
+
+// ---------- Correlaciones ----------
+async function etiquetaDeId(id) {
+  const siglas = await leyDeId(id);
+  if (!siglas) return { siglas: null, texto: id, ruta: null };
+  const ley = await cargarLey(siglas).catch(() => null);
+  const u = ley?.porId.get(id);
+  const clave = id.slice(siglas.length + 1);
+  return {
+    siglas,
+    texto: u ? `${citaCorta(u, ley)}` : `${siglas} ${clave.toUpperCase()}`,
+    ruta: `#/${siglas}/${clave}`,
+  };
+}
+
+async function pintarCorrelaciones(u) {
+  const zona = $("#zona-correlaciones");
+  if (!zona) return;
+  const oficiales = await cargarCorrelacionesOficiales();
+  const propias = almacen.correlacionesPropias();
+  const relacion = (c) => (c.de === u.id ? c.a : c.a === u.id ? c.de : null);
+  const items = [
+    ...oficiales.filter(relacion).map((c) => ({ ...c, otro: relacion(c), propia: false })),
+    ...propias.filter(relacion).map((c) => ({ ...c, otro: relacion(c), propia: true })),
+  ];
+  if (!items.length) {
+    zona.innerHTML = `<p class="vacio">Sin correlaciones manuales. Usa «Sugerir correlación» para vincular este artículo con otro.</p>`;
+    return;
+  }
+  const etiquetas = await Promise.all(items.map((c) => etiquetaDeId(c.otro)));
+  zona.innerHTML = `<ul class="lista-correlaciones">${items.map((c, i) => `
+    <li>
+      <a href="${escapar(etiquetas[i].ruta || "#/")}">${escapar(etiquetas[i].texto)}</a>
+      ${c.nota ? `<span class="nota-corr">— ${escapar(c.nota)}</span>` : ""}
+      <span class="origen-corr">${c.propia ? "tuya (solo en este navegador)" : "de la oficina"}</span>
+      ${c.propia ? `<button type="button" class="quitar" data-de="${escapar(c.de)}" data-a="${escapar(c.a)}" aria-label="Quitar correlación">×</button>` : ""}
+    </li>`).join("")}</ul>`;
+  zona.querySelectorAll("button.quitar").forEach((b) => b.addEventListener("click", () => {
+    almacen.quitarCorrelacion(b.dataset.de, b.dataset.a);
+    pintarCorrelaciones(u);
+  }));
+}
+
+function abrirDialogoCorrelacion(u, ley) {
+  const dlg = $("#dialogo-correlacion");
+  $("#corr-origen").textContent = `Vincular ${citaCorta(u, ley)} con:`;
+  $("#corr-ley").value = ley.siglas;
+  $("#corr-art").value = "";
+  $("#corr-nota").value = "";
+  $("#corr-error").hidden = true;
+  dlg.dataset.origen = u.id;
+  dlg.showModal();
+  $("#corr-art").focus();
+}
+
+async function guardarCorrelacionDesdeDialogo(e) {
+  e.preventDefault();
+  const dlg = $("#dialogo-correlacion");
+  const error = $("#corr-error");
+  const siglas = $("#corr-ley").value;
+  const clave = claveArticulo($("#corr-art").value);
+  const ley = await cargarLey(siglas);
+  const destino = `${siglas.toLowerCase()}-${clave}`;
+  if (!clave || !ley.porId.has(destino)) {
+    error.textContent = `No existe el artículo «${$("#corr-art").value}» en ${siglas}.`;
+    error.hidden = false;
+    return;
+  }
+  if (destino === dlg.dataset.origen) {
+    error.textContent = "Elige un artículo distinto.";
+    error.hidden = false;
+    return;
+  }
+  const nuevo = almacen.agregarCorrelacion(dlg.dataset.origen, destino, $("#corr-nota").value);
+  dlg.close();
+  avisar(nuevo ? "Correlación guardada" : "Esa correlación ya existía");
+  const { partes } = leerRuta();
+  const actual = (await cargarLey(partes[0])).porId.get(dlg.dataset.origen);
+  if (actual) pintarCorrelaciones(actual);
+}
+
+// ---------- Notas ----------
+let esperaNota;
+function conectarNotas(u, ley) {
+  const area = $("#nota-articulo");
+  const estado = $("#estado-nota");
+  area.value = almacen.nota(u.id);
+  const pintarEstado = () => {
+    const n = almacen.notas()[u.id];
+    estado.textContent = n ? `Guardada · ${almacen.haceCuanto(n.actualizado)}` : "Se guarda sola mientras escribes";
+  };
+  pintarEstado();
+  area.addEventListener("input", () => {
+    estado.textContent = "Guardando…";
+    clearTimeout(esperaNota);
+    esperaNota = setTimeout(() => {
+      const ok = almacen.guardarNota(u.id, area.value, { ley: ley.siglas, titulo: citaCorta(u, ley), ruta: `#/${ley.siglas}/${claveUrl(u)}` });
+      ok ? pintarEstado() : (estado.textContent = "⚠ No se pudo guardar (¿navegación privada?)");
+      marcarNotasEnArbol();
+    }, 400);
+  });
+}
+
 async function vistaUnidad(siglas, clave, consulta) {
   const info = await infoLey(siglas);
-  if (!info) throw new Error(`No existe el ordenamiento "${siglas}".`);
+  if (!info) return noCargada(siglas);
   const ley = await cargarLey(info.siglas);
   const id = `${ley.siglas.toLowerCase()}-${clave.toLowerCase()}`;
   const u = ley.porId.get(id);
   if (!u) {
+    // Sugerencias: artículos que empiezan con el mismo número (27 → 27, 27-A…)
+    const base = clave.toLowerCase().match(/^\d+/)?.[0];
+    const sugerencias = base ? ley.unidades.filter((x) => x.unidad !== "transitorio" && claveUrl(x).match(/^\d+/)?.[0] === base) : [];
     main.innerHTML = `
       <nav class="migas"><a href="#/">Inicio</a><span class="sep">›</span><a href="#/${escapar(ley.siglas)}">${escapar(ley.siglas)}</a></nav>
-      <div class="error">No existe el artículo <strong>${escapar(clave)}</strong> en ${escapar(ley.nombre)}.
-      <a href="#/${escapar(ley.siglas)}">Ver el índice</a>.</div>`;
-    return;
+      <div class="error">No existe el artículo <strong>${escapar(clave.toUpperCase())}</strong> en ${escapar(ley.nombre)}.
+      ${sugerencias.length ? `¿Buscabas ${sugerencias.map((x) => `<a href="#/${escapar(ley.siglas)}/${escapar(claveUrl(x))}">${escapar(tituloUnidad(x))}</a>`).join(", ")}?`
+        : `<a href="#/${escapar(ley.siglas)}">Ver el índice</a>.`}</div>`;
+    return `${ley.siglas} ${clave.toUpperCase()}`;
   }
 
   document.title = `${tituloUnidad(u)} ${ley.siglas}`;
@@ -299,15 +504,20 @@ async function vistaUnidad(siglas, clave, consulta) {
   const migas = u.ruta.map((r) => `<span class="sep">›</span><span>${escapar(etiquetaDivision(r))}</span>`).join("");
   const anterior = ley.unidades[u.indice - 1];
   const siguiente = ley.unidades[u.indice + 1];
-  const enlaceUnidad = (x) => `#/${escapar(ley.siglas)}/${escapar(claveUrl(x))}`;
+  const rutaUnidad = (x) => `#/${ley.siglas}/${claveUrl(x)}`;
+
+  almacen.registrarHistorial({
+    id: u.id, ley: ley.siglas, titulo: citaCorta(u, ley), ruta: rutaUnidad(u),
+    ubicacion: u.ruta.filter((r) => r.nivel !== "transitorios").map((r) => r.etiqueta).join(" › "),
+  });
 
   let insignias;
   if (u.unidad === "transitorio") {
     insignias = u.fecha_publicacion ? `<span class="insignia">Publicado: DOF ${fecha(u.fecha_publicacion)}</span>` : "";
   } else if (u.ultima_reforma) {
-    insignias = `<span class="insignia reforma">${ICONO_RELOJ} Última reforma: DOF ${fecha(u.ultima_reforma)}</span>`;
+    insignias = `<span class="insignia reforma">${ICONO.reloj} Última reforma: DOF ${fecha(u.ultima_reforma)}</span>`;
   } else {
-    insignias = `<span class="insignia">${ICONO_RELOJ} Sin reformas: texto original (DOF ${fecha(ley.publicacion)})</span>`;
+    insignias = `<span class="insignia">${ICONO.reloj} Sin reformas: texto original (DOF ${fecha(ley.publicacion)})</span>`;
   }
 
   main.innerHTML = `
@@ -316,24 +526,62 @@ async function vistaUnidad(siglas, clave, consulta) {
         <nav class="migas" aria-label="Ubicación">
           <a href="#/">Inicio</a><span class="sep">›</span><a href="#/${escapar(ley.siglas)}">${escapar(ley.siglas)}</a>${migas}
         </nav>
-        <h1>${escapar(tituloUnidad(u))} <span style="color:var(--texto-tenue);font-weight:500">${escapar(ley.siglas)}</span></h1>
+        <h1>${escapar(tituloUnidad(u))} <span class="siglas-titulo">${escapar(ley.siglas)}</span></h1>
         ${u.titulo_decreto ? `<p class="subtitulo">${escapar(u.titulo_decreto)}</p>` : ""}
         <div class="insignias">
           ${insignias}
-          <a class="insignia" href="${escapar(u.fuente)}" target="_blank" rel="noopener">${ICONO_DOC} Texto oficial</a>
+          <a class="insignia" href="${escapar(u.fuente)}" target="_blank" rel="noopener">${ICONO.doc} Texto oficial</a>
+        </div>
+        <div class="acciones" role="toolbar" aria-label="Acciones del artículo">
+          <button type="button" class="accion" data-accion="copiar" title="Copia el texto (o solo lo que tengas seleccionado) con su cita">${ICONO.copiar} Copiar con cita</button>
+          <button type="button" class="accion" data-accion="cita" title="Copia solo la cita, p. ej. «${escapar(citaCorta(u, ley))}»">${ICONO.cita} Copiar cita</button>
+          <button type="button" class="accion" data-accion="enlace" title="Copia un enlace directo a este artículo">${ICONO.enlace} Enlace</button>
+          <button type="button" class="accion" data-accion="vincular" title="Relaciona este artículo con otro">${ICONO.vincular} Sugerir correlación</button>
         </div>
       </header>
-      <div class="texto-ley">${textoHtml(u.texto, terminos)}</div>
+      <div class="texto-ley" id="texto-ley">${textoHtml(u.texto, terminos)}</div>
       ${u.reformas.length > 1 ? `
         <details class="historial-reformas">
           <summary>Reformas a este artículo (${u.reformas.length})</summary>
           <p>${u.reformas.map((f) => "DOF " + fecha(f)).join(" · ")}</p>
         </details>` : ""}
+
+      <section class="panel" aria-labelledby="titulo-correlaciones">
+        <h2 id="titulo-correlaciones">Correlaciones</h2>
+        <div id="zona-correlaciones"><p class="cargando">Cargando…</p></div>
+      </section>
+
+      <section class="panel" aria-labelledby="titulo-nota">
+        <h2 id="titulo-nota">Mi nota</h2>
+        <textarea id="nota-articulo" rows="4" placeholder="Escribe aquí tus apuntes sobre este artículo. Solo tú los ves."></textarea>
+        <p class="estado-nota" id="estado-nota"></p>
+      </section>
+
       <nav class="navegacion-art" aria-label="Artículos contiguos">
-        ${anterior ? `<a href="${enlaceUnidad(anterior)}"><small>← Anterior</small>${escapar(tituloUnidad(anterior))}</a>` : ""}
-        ${siguiente ? `<a class="siguiente" href="${enlaceUnidad(siguiente)}"><small>Siguiente →</small>${escapar(tituloUnidad(siguiente))}</a>` : ""}
+        ${anterior ? `<a href="${escapar(rutaUnidad(anterior))}"><small>← Anterior</small>${escapar(tituloUnidad(anterior))}</a>` : ""}
+        ${siguiente ? `<a class="siguiente" href="${escapar(rutaUnidad(siguiente))}"><small>Siguiente →</small>${escapar(tituloUnidad(siguiente))}</a>` : ""}
       </nav>
     </article>`;
+
+  // Acciones
+  main.querySelector(".acciones").addEventListener("click", (e) => {
+    const accion = e.target.closest("[data-accion]")?.dataset.accion;
+    if (accion === "copiar") {
+      const sel = window.getSelection();
+      const seleccion = sel && !sel.isCollapsed && $("#texto-ley").contains(sel.anchorNode) ? sel.toString().trim() : "";
+      const cuerpo = seleccion || textoParaCopiar(u.texto.split("\n"));
+      const encabezado = seleccion ? "" : `${tituloUnidad(u)} de la ${ley.nombre}\n\n`;
+      copiar(`${encabezado}${cuerpo}\n\n(${citaLarga(u, ley)})`, seleccion ? "Selección copiada con su cita" : "Artículo copiado con su cita");
+    } else if (accion === "cita") {
+      copiar(citaCorta(u, ley), `Copiado: ${citaCorta(u, ley)}`);
+    } else if (accion === "enlace") {
+      copiar(`${location.origin}${location.pathname}${rutaUnidad(u)}`, "Enlace copiado");
+    } else if (accion === "vincular") {
+      abrirDialogoCorrelacion(u, ley);
+    }
+  });
+  conectarNotas(u, ley);
+  pintarCorrelaciones(u);
 
   marcarEnArbol(ley.siglas, u.id);
   const primera = terminos.length && $("mark", main);
@@ -343,9 +591,104 @@ async function vistaUnidad(siglas, clave, consulta) {
   } else {
     irArriba();
   }
+  return citaCorta(u, ley);
 }
 
-// ---------- Búsqueda ----------
+// ==========================================================================
+// Historial y notas
+// ==========================================================================
+function itemHistorial(h) {
+  return `<li><a href="${escapar(h.ruta)}">${escapar(h.titulo)}</a>
+    ${h.ubicacion ? `<span class="ubicacion">${escapar(h.ubicacion)}</span>` : ""}
+    <span class="cuando">${escapar(almacen.haceCuanto(h.fecha))}</span></li>`;
+}
+
+function vistaHistorial() {
+  document.title = "Historial de consultas";
+  const h = almacen.historial();
+  const porLey = new Map();
+  h.forEach((x) => { if (!porLey.has(x.ley)) porLey.set(x.ley, []); porLey.get(x.ley).push(x); });
+  main.innerHTML = `
+    <h1>Historial de consultas</h1>
+    <p class="subtitulo">Artículos que abriste en este navegador, del más reciente al más antiguo.</p>
+    ${h.length ? `
+      ${[...porLey].map(([ley, items]) => `
+        <h2>${escapar(ley)} <span class="contador">${items.length}</span></h2>
+        <ul class="lista-simple">${items.map(itemHistorial).join("")}</ul>`).join("")}
+      <p><button type="button" class="boton" id="borrar-historial">Borrar historial</button></p>`
+      : `<p class="vacio">Aún no has consultado artículos.</p>`}`;
+  $("#borrar-historial")?.addEventListener("click", () => {
+    if (confirm("¿Borrar todo el historial de consultas de este navegador?")) {
+      almacen.borrarHistorial();
+      vistaHistorial();
+    }
+  });
+  irArriba();
+  return "Historial";
+}
+
+async function vistaNotas() {
+  document.title = "Mis notas";
+  const todas = Object.entries(almacen.notas()).sort((a, b) => b[1].actualizado - a[1].actualizado);
+  const propias = almacen.correlacionesPropias();
+  main.innerHTML = `
+    <h1>Mis notas</h1>
+    <p class="subtitulo">Tus notas y correlaciones se guardan solo en este navegador. Haz un respaldo de vez en cuando
+      para no perderlas si cambias de computadora o borras los datos del navegador.</p>
+    ${todas.length ? `<ul class="lista-notas">${todas.map(([id, n]) => `
+        <li>
+          <a href="${escapar(n.ruta || "#/")}">${escapar(n.titulo || id)}</a>
+          <span class="cuando">${escapar(almacen.haceCuanto(n.actualizado))}</span>
+          <p>${escapar(n.texto).replace(/\n/g, "<br>")}</p>
+        </li>`).join("")}</ul>`
+      : `<p class="vacio">Aún no tienes notas. Abre un artículo y escribe en «Mi nota», al final del texto.</p>`}
+
+    <h2>Respaldo</h2>
+    <div class="botonera">
+      <button type="button" class="boton" id="exportar">Exportar respaldo (.json)</button>
+      <label class="boton">Importar respaldo<input type="file" id="importar" accept="application/json,.json" hidden></label>
+    </div>
+    <p class="ayuda">El respaldo incluye tus ${todas.length} nota(s) y ${propias.length} correlación(es). Al importar, se combinan con lo que ya tienes.</p>
+
+    <h2>Correlaciones para la oficina</h2>
+    <p class="ayuda">Tus correlaciones solo las ves tú. Para que toda la oficina las vea, descarga este archivo y envíalo a quien
+      administra el sitio, que lo reemplaza en <code>web/data/correlaciones_manuales.json</code>.</p>
+    <div class="botonera">
+      <button type="button" class="boton" id="exportar-corr" ${propias.length ? "" : "disabled"}>Exportar correlaciones para la oficina</button>
+    </div>`;
+
+  $("#exportar").addEventListener("click", () =>
+    almacen.descargarJSON(`respaldo-legislacion-fiscal-${new Date().toISOString().slice(0, 10)}.json`, almacen.respaldo()));
+  $("#importar").addEventListener("change", async (e) => {
+    const archivo = e.target.files[0];
+    if (!archivo) return;
+    try {
+      const r = almacen.importarRespaldo(JSON.parse(await archivo.text()));
+      avisar(`Importado: ${r.nNotas} nota(s) y ${r.nCorr} correlación(es)`);
+      vistaNotas();
+      marcarNotasEnArbol();
+    } catch (err) {
+      avisar(err.message.includes("respaldo") ? err.message : "El archivo no se pudo leer como respaldo.");
+    }
+  });
+  $("#exportar-corr").addEventListener("click", async () => {
+    const oficiales = await cargarCorrelacionesOficiales();
+    const juntas = [...oficiales];
+    for (const c of propias) {
+      if (!juntas.some((x) => (x.de === c.de && x.a === c.a) || (x.de === c.a && x.a === c.de))) juntas.push(c);
+    }
+    almacen.descargarJSON("correlaciones_manuales.json", {
+      _descripcion: "Correlaciones entre artículos sugeridas a mano por el equipo. Formato: {de, a, nota, fecha}.",
+      correlaciones: juntas,
+    });
+  });
+  irArriba();
+  return "Mis notas";
+}
+
+// ==========================================================================
+// Búsqueda
+// ==========================================================================
 const POR_PAGINA = 40;
 
 async function vistaBusqueda(params) {
@@ -371,18 +714,18 @@ async function vistaBusqueda(params) {
   }));
 
   const zona = $("#zona-resultados");
+  const tituloPestana = consulta ? `«${consulta.length > 18 ? consulta.slice(0, 18) + "…" : consulta}»` : "Búsqueda";
   if (!consulta.trim()) {
     zona.innerHTML = `<p class="vacio">Escribe una o varias palabras en el buscador de arriba. Se ignoran acentos y mayúsculas;
-      "deduc" encuentra "deducción" y "deducciones".</p>`;
-    return;
+      "deduc" encuentra "deducción" y "deducciones". Para ir directo a un artículo escribe, por ejemplo, <kbd>LISR 27</kbd>.</p>`;
+    return tituloPestana;
   }
 
   await cargarTodas();
-  const filtro = elegidas.length ? elegidas : [];
-  const res = buscar(consulta, filtro);
+  const res = buscar(consulta, elegidas);
   if (!res.length) {
     zona.innerHTML = `<p class="vacio">Sin coincidencias para «${escapar(consulta)}». Prueba con menos palabras o con la raíz de la palabra.</p>`;
-    return;
+    return tituloPestana;
   }
 
   const leyes = new Map(await Promise.all(catalogo.map(async (l) => [l.siglas, await cargarLey(l.siglas)])));
@@ -397,7 +740,7 @@ async function vistaBusqueda(params) {
       const ley = leyes.get(r.ley);
       const u = ley.porId.get(r.id);
       const ruta = u.ruta.map(etiquetaDivision).join(" › ");
-      return `<li class="resultado"><a href="#/${escapar(ley.siglas)}/${escapar(claveUrl(u))}?q=${encodeURIComponent(r.terms.join(" "))}">
+      return `<li class="resultado"><a href="#/${escapar(ley.siglas)}/${escapar(claveUrl(u))}?q=${encodeURIComponent(consulta)}">
         <div class="titulo-res"><span class="siglas">${escapar(ley.siglas)}</span>${escapar(tituloUnidad(u))}</div>
         <div class="ruta-res">${escapar(ruta)}</div>
         <div class="fragmento">${fragmento(u.texto, r.terms, consulta)}</div></a></li>`;
@@ -411,20 +754,29 @@ async function vistaBusqueda(params) {
     }
   };
   pintarMas();
+  return tituloPestana;
 }
 
 const rutaBusqueda = (q, en = "") =>
   `#/buscar?q=${encodeURIComponent(q)}${en ? `&en=${encodeURIComponent(en)}` : ""}`;
 
 // ==========================================================================
-// Barra superior: búsqueda, tema y menú
+// Barra superior y lateral: búsqueda, "ir a", tema y menú
 // ==========================================================================
 let espera;
-$("#form-busqueda").addEventListener("submit", (e) => {
+$("#form-busqueda").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const { params } = leerRuta();
-  const en = leerRuta().partes[0] === "buscar" ? params.get("en") || "" : "";
-  location.hash = rutaBusqueda(campoBusqueda.value, en);
+  const texto = campoBusqueda.value.trim();
+  // "LISR 27", "art. 69-B CFF"… → directo al artículo
+  const ref = leerReferencia(texto, await cargarCatalogo());
+  if (ref) {
+    location.hash = `#/${ref.siglas}/${ref.clave}`;
+    campoBusqueda.value = "";
+    campoBusqueda.blur();
+    return;
+  }
+  const { partes, params } = leerRuta();
+  location.hash = rutaBusqueda(texto, partes[0] === "buscar" ? params.get("en") || "" : "");
 });
 campoBusqueda.addEventListener("input", () => {
   // En la página de búsqueda, los resultados se actualizan mientras escribes
@@ -434,6 +786,22 @@ campoBusqueda.addEventListener("input", () => {
     location.replace(rutaBusqueda(campoBusqueda.value, leerRuta().params.get("en") || ""));
   }, 250);
 });
+
+$("#form-ir").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const siglas = $("#ir-ley").value;
+  const texto = $("#ir-art").value.trim();
+  const error = $("#ir-error");
+  error.hidden = true;
+  if (!texto) return;
+  // También acepta "CFF 69-B" escrito completo en el campo de artículo
+  const ref = leerReferencia(texto, await cargarCatalogo());
+  location.hash = ref ? `#/${ref.siglas}/${ref.clave}` : `#/${siglas}/${claveArticulo(texto)}`;
+  $("#ir-art").value = "";
+});
+
+$("#form-correlacion").addEventListener("submit", guardarCorrelacionDesdeDialogo);
+$("#corr-cancelar").addEventListener("click", () => $("#dialogo-correlacion").close());
 
 const botonTema = $("#boton-tema");
 function pintarBotonTema() {
@@ -466,7 +834,7 @@ velo.addEventListener("click", cerrarMenu);
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") cerrarMenu();
   // "/" lleva al buscador, como en muchos sitios de consulta
-  if (e.key === "/" && document.activeElement !== campoBusqueda && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) {
+  if (e.key === "/" && document.activeElement !== campoBusqueda && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) {
     e.preventDefault();
     campoBusqueda.focus();
   }
@@ -474,6 +842,7 @@ document.addEventListener("keydown", (e) => {
 
 // ==========================================================================
 window.addEventListener("hashchange", enrutar);
+iniciarPestanas(enrutar);
 construirArbol()
   .catch((e) => { arbol.innerHTML = `<p class="proximamente">${escapar(e.message)}</p>`; })
   .finally(enrutar);

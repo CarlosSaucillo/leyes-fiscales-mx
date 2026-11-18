@@ -13,7 +13,7 @@ el texto con validez oficial es el publicado en el DOF.
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1 | Extractor corregido + interfaz web con la LISR | ✅ |
-| 2 | Pestañas, historial, notas, copiar con cita, ir directo (LISR 27) | pendiente |
+| 2 | Pestañas, historial, notas, copiar con cita, ir directo (LISR 27), correlaciones manuales | ✅ |
 | 3 | RLISR, CFF, RCFF, LIVA, RLIVA, LIF 2026 y 2027 + hipervínculos automáticos | pendiente |
 | 4 | RMF 2026 y versiones anticipadas | pendiente |
 | 5 | Fechas de reforma por artículo y comparación de versiones | pendiente |
@@ -31,6 +31,15 @@ Equivalente en Terminal:
 ```bash
 python3 -m http.server 8000 -d web
 ```
+
+## Funciones
+
+- **Ir directo:** escribe `LISR 27`, `isr 113e` o `art. 69-B CFF` en el buscador, o usa «Ir a artículo» en el lateral.
+- **Pestañas:** «+» abre una consulta nueva; Ctrl/⌘ + clic (o clic con la rueda) abre cualquier enlace en pestaña nueva.
+- **Historial** y **Mis notas:** accesos en el lateral. Se guardan solo en tu navegador; usa *Exportar respaldo* para no perderlos.
+- **Copiar con cita:** copia el artículo (o solo lo seleccionado) con su cita y fuente. «Copiar cita» copia solo `Art. 27 LISR`.
+- **Sugerir correlación:** vincula dos artículos. Para compartirlas con la oficina: *Mis notas → Exportar correlaciones para la oficina*
+  y reemplazar `web/data/correlaciones_manuales.json`.
 
 ## Estructura
 

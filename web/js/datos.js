@@ -59,6 +59,23 @@ export async function cargarTodas() {
 
 export function leyYaCargada(siglas) { return leyes.has(siglas); }
 
+/** Correlaciones manuales "de la oficina" (archivo publicado con el sitio). Si no existe, lista vacía. */
+let correlacionesPromesa = null;
+export function cargarCorrelacionesOficiales() {
+  correlacionesPromesa ??= leerJSON("data/correlaciones_manuales.json")
+    .then((d) => (Array.isArray(d.correlaciones) ? d.correlaciones : []))
+    .catch(() => []);
+  return correlacionesPromesa;
+}
+
+/** Siglas de la ley a la que pertenece un id ("cff-69-b" → "CFF"), según el catálogo. */
+export async function leyDeId(id) {
+  const cat = await cargarCatalogo();
+  return cat.map((l) => l.siglas)
+    .filter((s) => id.startsWith(s.toLowerCase() + "-"))
+    .sort((a, b) => b.length - a.length)[0] || null;
+}
+
 // ---------- Formatos ----------
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 /** "2021-11-12" → "12 nov 2021" */

@@ -40,14 +40,56 @@
 
   <div class="cuerpo">
     <aside class="lateral" id="lateral" aria-label="Índice de leyes">
+      <form class="ir-a" id="form-ir" autocomplete="off">
+        <label class="ir-titulo" for="ir-art">Ir a artículo</label>
+        <div class="ir-fila">
+          <select id="ir-ley" aria-label="Ley"></select>
+          <input id="ir-art" type="text" placeholder="27, 113-E…" inputmode="text">
+          <button type="submit" class="boton-ir">Ir</button>
+        </div>
+        <p class="ir-error" id="ir-error" hidden></p>
+      </form>
+      <nav class="accesos" aria-label="Mis consultas">
+        <a href="#/historial"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Historial</a>
+        <a href="#/notas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13 7 4 4"/></svg>Mis notas</a>
+      </nav>
       <nav id="arbol" class="arbol"></nav>
     </aside>
     <div class="velo" id="velo" hidden></div>
 
-    <main id="contenido" class="contenido" tabindex="-1">
-      <p class="cargando">Cargando…</p>
-    </main>
+    <div class="columna">
+      <nav id="pestanas" class="pestanas" aria-label="Pestañas de consulta"></nav>
+      <main id="contenido" class="contenido" tabindex="-1">
+        <p class="cargando">Cargando…</p>
+      </main>
+    </div>
   </div>
+
+  <dialog id="dialogo-correlacion" class="dialogo">
+    <form method="dialog" id="form-correlacion">
+      <h2>Sugerir correlación</h2>
+      <p class="subtitulo" id="corr-origen"></p>
+      <div class="campo">
+        <label for="corr-ley">Ley</label>
+        <select id="corr-ley"></select>
+      </div>
+      <div class="campo">
+        <label for="corr-art">Artículo</label>
+        <input id="corr-art" type="text" placeholder="27, 69-B…" required autocomplete="off">
+      </div>
+      <div class="campo">
+        <label for="corr-nota">Comentario (opcional)</label>
+        <input id="corr-nota" type="text" placeholder="Por qué se relacionan" autocomplete="off">
+      </div>
+      <p class="ir-error" id="corr-error" hidden></p>
+      <div class="dialogo-botones">
+        <button type="button" class="boton" value="cancelar" id="corr-cancelar">Cancelar</button>
+        <button type="submit" class="boton primario" value="guardar">Vincular</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="aviso" id="aviso" role="status" aria-live="polite" hidden></div>
 
   <script src="vendor/minisearch.js"></script>
   <script type="module" src="js/app.js"></script>
