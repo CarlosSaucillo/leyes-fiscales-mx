@@ -32,7 +32,6 @@ const PENDIENTES = [
   { siglas: "RLIVA", nombre: "Reglamento de la Ley del Impuesto al Valor Agregado" },
   { siglas: "LIF2026", nombre: "Ley de Ingresos de la Federación 2026" },
   { siglas: "LIF2027", nombre: "Ley de Ingresos de la Federación 2027" },
-  { siglas: "RMF", nombre: "Resolución Miscelánea Fiscal 2026" },
 ];
 
 const ICONO = {
@@ -97,12 +96,15 @@ function avisar(texto) {
 // ==========================================================================
 async function construirArbol() {
   const catalogo = await cargarCatalogo();
-  const leyesHtml = catalogo.map((l) => `
+  const nodoLey = (l) => `
     <details class="ley" data-siglas="${escapar(l.siglas)}">
       <summary><span class="siglas">${escapar(l.siglas)}</span> <span>${escapar(l.nombre)}</span></summary>
       <div class="rama" data-contenido><div class="proximamente">Cargando…</div></div>
-    </details>`).join("");
-  const pendientes = PENDIENTES.filter((p) => !catalogo.some((l) => l.siglas === p.siglas) && p.siglas !== "RMF");
+    </details>`;
+  const deMateria = (m) => catalogo.filter((l) => (l.materia?.[1] || "Legislación fiscal") === m);
+  const leyesHtml = deMateria("Legislación fiscal").map(nodoLey).join("");
+  const resolucionesHtml = deMateria("Resoluciones fiscales").map(nodoLey).join("");
+  const pendientes = PENDIENTES.filter((p) => !catalogo.some((l) => l.siglas === p.siglas));
 
   arbol.innerHTML = `
     <details class="materia" open>
@@ -114,9 +116,9 @@ async function construirArbol() {
             ${pendientes.map((p) => `<div class="proximamente" title="Se agregará en la fase 3">${escapar(p.siglas)} · en preparación</div>`).join("")}
           </div>
         </details>
-        <details class="materia">
+        <details class="materia" open>
           <summary>Resoluciones fiscales</summary>
-          <div class="rama"><div class="proximamente">RMF 2026 y versiones anticipadas · en preparación</div></div>
+          <div class="rama">${resolucionesHtml || '<div class="proximamente">En preparación</div>'}</div>
         </details>
       </div>
     </details>`;
@@ -136,17 +138,24 @@ async function llenarRamaLey(detalle) {
   const ley = await cargarLey(detalle.dataset.siglas);
   const cont = $("[data-contenido]", detalle);
   cont.innerHTML = `<a href="#/${escapar(ley.siglas)}">Índice completo</a>` +
-    ley.estructura.map((n) => nodoArbol(ley, n)).join("");
+    ley.estructura.map((n) => nodoArbol(ley, n)).join("") + nodosDocumentos(ley);
   marcarNotasEnArbol();
 }
 
 function nodoArbol(ley, nodo) {
+  let conTitulo = false;
   const enlaces = nodo.unidades.map((id) => {
     const u = ley.porId.get(id);
+    const aviso = u.pendientes?.length || u.nueva_en ? ` <span class="marca-pendiente" title="Con cambios posteriores al compilado">●</span>` : "";
+    if (u.unidad === "regla" || u.unidad === "glosario") {
+      conTitulo = true;
+      return `<a class="con-titulo" href="#/${escapar(ley.siglas)}/${escapar(claveUrl(u))}" data-id="${escapar(u.id)}"
+                 title="${escapar(u.titulo_regla || "")}"><b>${escapar(tituloCorto(u))}</b> ${escapar(u.titulo_regla || "")}${aviso}</a>`;
+    }
     return `<a href="#/${escapar(ley.siglas)}/${escapar(claveUrl(u))}" data-id="${escapar(u.id)}"
                title="${escapar(tituloUnidad(u))}">${escapar(tituloCorto(u))}</a>`;
   }).join("");
-  const esTrans = nodo.nivel === "transitorios";
+  const esTrans = nodo.nivel === "transitorios" || conTitulo;
   return `
     <details>
       <summary><span class="etiqueta">${escapar(nodo.etiqueta)}</span>
@@ -156,6 +165,20 @@ function nodoArbol(ley, nodo) {
         ${enlaces ? `<div class="${esTrans ? "" : "rejilla-art"}">${enlaces}</div>` : ""}
       </div>
     </details>`;
+}
+
+/** Documentos relacionados (RMF): modificaciones, versiones anticipadas y anexos, con su PDF oficial. */
+function nodosDocumentos(ley) {
+  const d = ley.documentos;
+  if (!d) return "";
+  const item = (x, extra = "") => `<a class="documento" href="${escapar(x.url)}" target="_blank" rel="noopener"
+      title="Abrir el PDF oficial del SAT">${escapar(x.titulo)}${x.fecha ? ` <small>${escapar(fecha(x.fecha))}</small>` : ""}${extra}</a>`;
+  const mods = d.modificaciones.map((x) => item(x, x.integrada ? "" : ` <span class="marca-pendiente" title="Aún no integrada en el compilado">●</span>`)).join("");
+  const antic = d.anticipadas.map((x) => item(x, x.publicada_dof ? "" : ` <span class="marca-pendiente" title="Aún no publicada en el DOF">●</span>`)).join("");
+  return `
+    <details><summary><span class="etiqueta">Resoluciones de modificaciones</span></summary><div class="rama">${item(d.base)}${mods}</div></details>
+    <details><summary><span class="etiqueta">Versiones anticipadas</span> <span class="nombre-div">${d.anticipadas.length}</span></summary><div class="rama">${antic}</div></details>
+    <details><summary><span class="etiqueta">Anexos</span> <span class="nombre-div">${d.anexos.length}</span></summary><div class="rama">${d.anexos.map((x) => item(x)).join("")}</div></details>`;
 }
 
 /** Punto junto a los artículos que tienen nota personal. */
@@ -191,7 +214,9 @@ function tarjetaLey(l) {
       <dl>
         <dt>Última reforma</dt><dd>${l.ultima_reforma ? "DOF " + fecha(l.ultima_reforma) : "Sin reformas"}</dd>
         <dt>Publicación</dt><dd>DOF ${fecha(l.publicacion)}</dd>
-        <dt>Contenido</dt><dd>${l.num_articulos} artículos · ${l.num_transitorios} ${l.num_transitorios === 1 ? "bloque" : "bloques"} de transitorios</dd>
+        <dt>Contenido</dt><dd>${l.num_articulos} ${l.unidad_nombre || "artículos"} · ${l.num_transitorios} ${l.num_transitorios === 1 ? "bloque" : "bloques"} de transitorios</dd>
+        ${l.compilado ? `<dt>Compilado SAT</dt><dd>integra hasta la ${escapar(l.compilado.integra_hasta)}</dd>` : ""}
+        ${l.pendientes?.length ? `<dt>Posteriores</dt><dd class="texto-aviso">${l.pendientes.length} documento(s) aún no integrados</dd>` : ""}
       </dl>
     </a>`;
 }
@@ -210,7 +235,7 @@ async function vistaInicio() {
       <p><a href="#/historial">Ver todo el historial →</a></p>
       <h2>Ordenamientos</h2>` : ""}
     <div class="tarjetas">
-      ${catalogo.map(tarjetaLey).join("")}
+      ${catalogo.filter((l) => l.tipo !== "resolucion").map(tarjetaLey).join("")}
       ${PENDIENTES.filter((p) => !catalogo.some((l) => l.siglas === p.siglas)).map((p) => `
         <div class="tarjeta pendiente">
           <span class="siglas">${escapar(p.siglas)}</span>
@@ -218,6 +243,8 @@ async function vistaInicio() {
           <dl><dt>Estado</dt><dd>En preparación</dd></dl>
         </div>`).join("")}
     </div>
+    ${catalogo.some((l) => l.tipo === "resolucion") ? `<h2>Resoluciones fiscales</h2>
+      <div class="tarjetas">${catalogo.filter((l) => l.tipo === "resolucion").map(tarjetaLey).join("")}</div>` : ""}
     ${AVISO_LEGAL}`;
   irArriba();
   return "Inicio";
@@ -226,17 +253,23 @@ async function vistaInicio() {
 function rangoArticulos(ley, nodo) {
   const nums = [];
   const recorrer = (n) => {
-    n.unidades.forEach((id) => { const u = ley.porId.get(id); if (u.unidad !== "transitorio") nums.push(u.numero); });
+    n.unidades.forEach((id) => { const u = ley.porId.get(id); if (u.unidad === "articulo" || u.unidad === "regla") nums.push(u.numero); });
     n.hijos.forEach(recorrer);
   };
   recorrer(nodo);
   if (!nums.length) return "";
-  return nums.length === 1 ? `Art. ${nums[0]}` : `Arts. ${nums[0]} a ${nums[nums.length - 1]}`;
+  const [uno, varios] = ley.tipo === "resolucion" ? ["Regla", "Reglas"] : ["Art.", "Arts."];
+  return nums.length === 1 ? `${uno} ${nums[0]}` : `${varios} ${nums[0]} a ${nums[nums.length - 1]}`;
 }
 
 function nodoIndice(ley, nodo) {
+  let conTitulo = false;
   const enlaces = nodo.unidades.map((id) => {
     const u = ley.porId.get(id);
+    if (u.titulo_regla && u.unidad !== "transitorio") {
+      conTitulo = true;
+      return `<a class="con-titulo" href="#/${escapar(ley.siglas)}/${escapar(claveUrl(u))}"><b>${escapar(tituloCorto(u))}</b> ${escapar(u.titulo_regla)}</a>`;
+    }
     return `<a href="#/${escapar(ley.siglas)}/${escapar(claveUrl(u))}">${escapar(tituloCorto(u))}</a>`;
   }).join("");
   return `
@@ -248,9 +281,24 @@ function nodoIndice(ley, nodo) {
       </summary>
       <div class="rama">
         ${nodo.hijos.map((h) => nodoIndice(ley, h)).join("")}
-        ${enlaces ? `<div class="lista-art">${enlaces}</div>` : ""}
+        ${enlaces ? `<div class="${conTitulo ? "lista-reglas" : "lista-art"}">${enlaces}</div>` : ""}
       </div>
     </details>`;
+}
+
+/** Bloque informativo de la RMF: compilado vigente y documentos posteriores aún no integrados. */
+function infoResolucion(ley) {
+  if (!ley.compilado) return "";
+  const pend = ley.pendientes || [];
+  return `
+    <div class="aviso-compilado">
+      <p><strong>Texto vigente:</strong> ${escapar(ley.compilado.titulo)} del SAT (integra hasta la ${escapar(ley.compilado.integra_hasta)}).
+        <a href="${escapar(ley.compilado.url)}" target="_blank" rel="noopener">PDF</a></p>
+      ${pend.length ? `<p><strong>Posteriores al compilado</strong> (se muestran como aviso en cada regla afectada; el texto de la regla no se modifica):</p>
+        <ul>${pend.map((p) => `<li><a href="${escapar(p.url)}" target="_blank" rel="noopener">${escapar(p.titulo)}</a>
+          ${p.fecha ? `· ${escapar(fecha(p.fecha))}` : ""} · ${p.tipo === "modificacion" ? "publicada en el DOF" : "<em>versión anticipada, aún sin publicar en el DOF</em>"}</li>`).join("")}</ul>` : ""}
+      <p class="ayuda">El SAT aclara que el compilado es de consulta: para sustentar actos o resoluciones se usa la publicación en el DOF.</p>
+    </div>`;
 }
 
 async function vistaLey(siglas) {
@@ -263,11 +311,12 @@ async function vistaLey(siglas) {
     <nav class="migas" aria-label="Ubicación"><a href="#/">Inicio</a><span class="sep">›</span><span>${escapar(ley.siglas)}</span></nav>
     <h1>${escapar(ley.nombre)}</h1>
     <div class="insignias">
-      <span class="insignia reforma">${ICONO.reloj} Última reforma: ${ley.ultima_reforma ? "DOF " + fecha(ley.ultima_reforma) : "sin reformas"}</span>
+      <span class="insignia reforma">${ICONO.reloj} Última ${ley.tipo === "resolucion" ? "modificación" : "reforma"}: ${ley.ultima_reforma ? "DOF " + fecha(ley.ultima_reforma) : "sin reformas"}</span>
       <span class="insignia">Publicada: DOF ${fecha(ley.publicacion)}</span>
-      <span class="insignia">${ley.num_articulos} artículos</span>
+      <span class="insignia">${ley.num_articulos} ${ley.unidad_nombre || "artículos"}</span>
       <a class="insignia" href="${escapar(ley.fuente)}" target="_blank" rel="noopener">${ICONO.doc} Texto oficial (PDF)</a>
     </div>
+    ${infoResolucion(ley)}
     <h2>Índice</h2>
     <div class="indice">${ley.estructura.map((n) => nodoIndice(ley, n)).join("")}</div>
     ${AVISO_LEGAL}`;
@@ -363,11 +412,37 @@ function textoHtml(texto, terminos, enlaces = []) {
   return html;
 }
 
+// ---------- Avisos de cambios posteriores al compilado (RMF) ----------
+function avisosPendientes(u, terminos) {
+  const bloques = [];
+  if (u.nueva_en) {
+    const n = u.nueva_en;
+    bloques.push(`<div class="aviso-cambio nueva">
+      <p><strong>Regla nueva</strong> adicionada por la <a href="${escapar(n.url)}" target="_blank" rel="noopener">${escapar(n.documento)}</a>
+      ${n.fecha ? `(${escapar(fecha(n.fecha))})` : ""}: ${escapar(n.estado)}. El texto de abajo se tomó de ese documento oficial.</p></div>`);
+  }
+  const pendientes = u.pendientes || [];
+  pendientes.forEach((p, i) => {
+    const abierto = i === pendientes.length - 1 ? " open" : "";   // solo el más reciente, abierto
+    bloques.push(`<details class="aviso-cambio"${abierto}>
+      <summary><strong>${p.derogada ? "Derogada por la" : "Modificada por la"} ${escapar(p.documento)}</strong>
+        ${p.fecha ? `· ${escapar(fecha(p.fecha))}` : ""} — ${escapar(p.estado)}</summary>
+      <p class="ayuda">El texto principal de abajo es el del compilado del SAT y <strong>todavía no incluye este cambio</strong>.
+        Extracto oficial de la modificación, tal como se publicó («…» = sin cambios):</p>
+      ${p.titulo_regla ? `<p class="epigrafe">${escapar(p.titulo_regla)}</p>` : ""}
+      <div class="texto-ley extracto">${textoHtml(p.texto, terminos)}</div>
+      <p><a href="${escapar(p.url)}" target="_blank" rel="noopener">${ICONO.doc} Ver el documento oficial (PDF)</a></p>
+    </details>`);
+  });
+  return bloques.join("");
+}
+
 // ---------- Copiar con cita ----------
 /** "Art. 27 LISR" (o "Transitorios, DOF 18 nov 2015, LISR") */
 function citaCorta(u, ley) {
   if (u.unidad === "transitorio") return `Transitorios del decreto publicado en el DOF el ${fecha(u.fecha_publicacion)}, ${ley.siglas}`;
-  if (u.unidad === "regla") return `Regla ${u.numero} ${ley.siglas}`;
+  if (u.unidad === "regla") return `Regla ${u.numero}. de la ${ley.nombre.replace("Resolución Miscelánea Fiscal", "RMF")}`;
+  if (u.unidad === "glosario") return `Glosario de la ${ley.nombre.replace("Resolución Miscelánea Fiscal", "RMF")}`;
   return `Art. ${u.numero} ${ley.siglas}`;
 }
 
@@ -410,7 +485,8 @@ async function etiquetaDeId(id) {
   const siglas = await leyDeId(id);
   if (!siglas) return { siglas: null, texto: id, ruta: null };
   const clave = id.slice(siglas.length + 1);
-  const numeros = (await infoLey(siglas))?.numeros || {};
+  const info = await infoLey(siglas);
+  const numeros = info?.numeros || {};
   const numero = numeros[clave];
   const orden = Object.keys(numeros).indexOf(clave);   // posición en la ley, para ordenar
   if (numero?.startsWith("Transitorios")) {
@@ -418,8 +494,9 @@ async function etiquetaDeId(id) {
     return { siglas, orden, corto: f ? `Trans. DOF ${fecha(f)}` : "Transitorios",
              texto: `Transitorios${f ? ` DOF ${fecha(f)}` : ""} ${siglas}`, ruta: `#/${siglas}/${clave}` };
   }
+  const pre = info?.tipo === "resolucion" ? "Regla" : "Art.";
   return { siglas, orden, corto: numero || clave.toUpperCase(),
-           texto: numero ? `Art. ${numero} ${siglas}` : `${siglas} ${clave.toUpperCase()}`, ruta: `#/${siglas}/${clave}` };
+           texto: numero ? `${pre} ${numero} ${siglas}` : `${siglas} ${clave.toUpperCase()}`, ruta: `#/${siglas}/${clave}` };
 }
 
 /** Lista compacta de artículos agrupada por ley: "LISR: 9 · 27 · 28   CFF: 29 · 29-A" */
@@ -538,7 +615,7 @@ async function vistaUnidad(siglas, clave, consulta) {
   const info = await infoLey(siglas);
   if (!info) return noCargada(siglas);
   const ley = await cargarLey(info.siglas);
-  const id = `${ley.siglas.toLowerCase()}-${clave.toLowerCase()}`;
+  const id = `${ley.siglas.toLowerCase()}-${claveArticulo(clave) || clave.toLowerCase()}`;
   const u = ley.porId.get(id);
   if (!u) {
     // Sugerencias: artículos que empiezan con el mismo número (27 → 27, 27-A…)
@@ -568,9 +645,10 @@ async function vistaUnidad(siglas, clave, consulta) {
   if (u.unidad === "transitorio") {
     insignias = u.fecha_publicacion ? `<span class="insignia">Publicado: DOF ${fecha(u.fecha_publicacion)}</span>` : "";
   } else if (u.ultima_reforma) {
-    insignias = `<span class="insignia reforma">${ICONO.reloj} Última reforma: DOF ${fecha(u.ultima_reforma)}</span>`;
+    insignias = `<span class="insignia reforma">${ICONO.reloj} Última ${ley.tipo === "resolucion" ? "modificación" : "reforma"}: DOF ${fecha(u.ultima_reforma)}</span>`;
   } else {
-    insignias = `<span class="insignia">${ICONO.reloj} Sin reformas: texto original (DOF ${fecha(ley.publicacion)})</span>`;
+    insignias = u.nueva_en ? `<span class="insignia reforma">${ICONO.reloj} Regla nueva (${escapar(u.nueva_en.documento)})</span>`
+      : `<span class="insignia">${ICONO.reloj} Sin ${ley.tipo === "resolucion" ? "modificaciones" : "reformas"}: texto original (DOF ${fecha(ley.publicacion)})</span>`;
   }
 
   main.innerHTML = `
@@ -581,6 +659,7 @@ async function vistaUnidad(siglas, clave, consulta) {
         </nav>
         <h1>${escapar(tituloUnidad(u))} <span class="siglas-titulo">${escapar(ley.siglas)}</span></h1>
         ${u.titulo_decreto ? `<p class="subtitulo">${escapar(u.titulo_decreto)}</p>` : ""}
+        ${u.titulo_regla && u.unidad === "regla" ? `<p class="epigrafe">${escapar(u.titulo_regla)}</p>` : ""}
         <div class="insignias">
           ${insignias}
           <a class="insignia" href="${escapar(u.fuente)}" target="_blank" rel="noopener">${ICONO.doc} Texto oficial</a>
@@ -592,7 +671,9 @@ async function vistaUnidad(siglas, clave, consulta) {
           <button type="button" class="accion" data-accion="vincular" title="Relaciona este artículo con otro">${ICONO.vincular} Sugerir correlación</button>
         </div>
       </header>
+      ${avisosPendientes(u, terminos)}
       <div class="texto-ley" id="texto-ley">${textoHtml(u.texto, terminos, u.enlaces)}</div>
+      ${u.referencias_sat ? `<p class="referencias-sat"><span>Referencias:</span> ${parrafoHtml(u.referencias_sat, (u.enlaces_refs || []).map(([i, f, d]) => [0, i, f, d]), escapar)}</p>` : ""}
       ${u.reformas.length > 1 ? `
         <details class="historial-reformas">
           <summary>Reformas a este artículo (${u.reformas.length})</summary>
@@ -794,7 +875,7 @@ async function vistaBusqueda(params) {
       const u = ley.porId.get(r.id);
       const ruta = u.ruta.map(etiquetaDivision).join(" › ");
       return `<li class="resultado"><a href="#/${escapar(ley.siglas)}/${escapar(claveUrl(u))}?q=${encodeURIComponent(consulta)}">
-        <div class="titulo-res"><span class="siglas">${escapar(ley.siglas)}</span>${escapar(tituloUnidad(u))}</div>
+        <div class="titulo-res"><span class="siglas">${escapar(ley.siglas)}</span>${escapar(tituloUnidad(u))}${u.titulo_regla && u.unidad === "regla" ? ` <span class="epigrafe-res">${escapar(u.titulo_regla)}</span>` : ""}</div>
         <div class="ruta-res">${escapar(ruta)}</div>
         <div class="fragmento">${fragmento(u.texto, r.terms, consulta)}</div></a></li>`;
     }).join(""));

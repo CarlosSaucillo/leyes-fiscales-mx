@@ -106,7 +106,10 @@ RE_DIVISION = re.compile(
 )
 NIVELES = {"TITULO": "titulo", "CAPITULO": "capitulo", "SECCION": "seccion", "APARTADO": "apartado"}
 ORDEN_NIVEL = {"titulo": 1, "capitulo": 2, "seccion": 3, "apartado": 4}
-ETIQUETA_NIVEL = {"titulo": "Título", "capitulo": "Capítulo", "seccion": "Sección", "apartado": "Apartado"}
+ETIQUETA_NIVEL = {"titulo": "Título", "capitulo": "Capítulo", "seccion": "Sección", "apartado": "Apartado",
+                  "subseccion": "Subsección"}
+# Documentos generados por otros extractores (scripts/build_rmf.py) que también van al catálogo
+EXTRAS = ["RMF2026"]
 
 # Notas oficiales al pie: "Párrafo reformado DOF 09-12-2019"
 RE_ANOTACION = re.compile(
@@ -707,7 +710,7 @@ def verificar_pdf(siglas: str, datos: dict) -> list[str]:
 # ---------------------------------------------------------------------------
 def actualizar_catalogo() -> None:
     catalogo = []
-    for siglas in NORMAS:
+    for siglas in list(NORMAS) + EXTRAS:
         f = SALIDA / f"{siglas}.json"
         if f.exists():
             datos = json.loads(f.read_text(encoding="utf-8"))
@@ -726,7 +729,7 @@ def enlazar_todas() -> None:
     import referencias
 
     leyes = {s: json.loads((SALIDA / f"{s}.json").read_text(encoding="utf-8"))
-             for s in NORMAS if (SALIDA / f"{s}.json").exists()}
+             for s in list(NORMAS) + EXTRAS if (SALIDA / f"{s}.json").exists()}
     stats, no_resueltas = referencias.enlazar(leyes)
     for s, datos in leyes.items():
         (SALIDA / f"{s}.json").write_text(json.dumps(datos, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

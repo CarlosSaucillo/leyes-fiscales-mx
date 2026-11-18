@@ -86,13 +86,14 @@ export function fecha(iso) {
 }
 
 /** "lisr-27" → "27" (parte de la URL) */
-export const claveUrl = (u) => u.id.slice(u.ley.length + 1);
+export const claveUrl = (u) => (u.unidad === "regla" ? u.numero : u.id.slice(u.ley.length + 1));
 
 export function tituloUnidad(u) {
   if (u.unidad === "transitorio") {
     return u.fecha_publicacion ? `Transitorios · DOF ${fecha(u.fecha_publicacion)}` : u.numero;
   }
   if (u.unidad === "regla") return `Regla ${u.numero}`;
+  if (u.unidad === "glosario") return "Glosario";
   return `Artículo ${u.numero}`;
 }
 

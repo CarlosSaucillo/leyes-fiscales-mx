@@ -12,14 +12,14 @@ const VACIAS = new Set(("a al ante con contra de del desde el en entre hacia has
 
 const indice = new MiniSearch({
   idField: "id",
-  fields: ["numero", "texto", "ruta"],
+  fields: ["numero", "titulo", "texto", "ruta"],
   storeFields: ["ley", "numero", "unidad"],
   processTerm: (t) => {
     const n = normalizar(t);
     return VACIAS.has(n) ? null : n;
   },
   searchOptions: {
-    boost: { numero: 4, ruta: 1.5 },
+    boost: { numero: 4, titulo: 2.5, ruta: 1.5 },
     combineWith: "AND",
     prefix: (t) => t.length >= 4,
     // Tolera un error de dedo solo en palabras largas ("deducibel" → "deducible")
@@ -41,7 +41,7 @@ alCargarLey((ley) => {
   indexadas.add(ley.siglas);
   ley.unidades.forEach((u) => textoNormalizado.set(u.id, normalizar(textoPlano(u.texto)).replace(/\s+/g, " ")));
   indice.addAll(ley.unidades.map((u) => ({
-    id: u.id, ley: u.ley, numero: u.numero, unidad: u.unidad, texto: textoPlano(u.texto),
+    id: u.id, ley: u.ley, numero: u.numero, unidad: u.unidad, titulo: u.titulo_regla || "", texto: textoPlano(u.texto),
     ruta: u.ruta.map((r) => `${r.etiqueta} ${r.nombre || ""}`).join(" "),
   })));
 });

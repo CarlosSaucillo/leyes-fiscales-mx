@@ -12,11 +12,11 @@ const ALIAS = {
   rcff: "RCFF", reglamentocff: "RCFF",
   liva: "LIVA", iva: "LIVA",
   rliva: "RLIVA", riva: "RLIVA", reglamentoiva: "RLIVA",
-  rmf: "RMF", miscelanea: "RMF",
 };
 
 const SUFIJOS = "bis|ter|quater|quinquies|sexies|septies|octies|nonies|decies";
-const NUM = `\\d+(?:o(?![a-z]))?(?:[\\s.-]*(?:${SUFIJOS}|[a-z](?![a-z])))*`;
+// Número de regla de la RMF (2.7.1.1) o de artículo (27, 69-B, 1o.-A, 82 Bis)
+const NUM = `\\d+(?:\\.\\d+){1,4}\\.?|\\d+(?:o(?![a-z]))?(?:[\\s.-]*(?:${SUFIJOS}|[a-z](?![a-z])))*`;
 // Siglas, con año opcional solo si después viene el número de artículo: "lif2027 3", "lif 2027 3", "lif27 3"
 const SIG = "[a-z]+(?:\\d{2}(?:\\d{2})?(?=\\s)|\\s\\d{4}(?=\\s))?";
 const ART = "(?:art(?:iculo|\\.)?|regla)?\\s*";
@@ -36,11 +36,13 @@ export function resolverSiglas(texto, catalogo) {
   const t = normalizar(texto).replace(/[\s.]/g, "");
   const directa = catalogo.find((l) => l.siglas.toLowerCase() === t);
   if (directa) return directa.siglas;
-  // "lif" sin año → la Ley de Ingresos del año en curso (o la más reciente cargada)
-  if (/^lif(\d{2,4})?$/.test(t)) {
-    const anio = t.length > 3 ? (t.length === 5 ? "20" + t.slice(3) : t.slice(3)) : String(new Date().getFullYear());
-    const lifs = catalogo.filter((l) => l.siglas.startsWith("LIF")).map((l) => l.siglas).sort();
-    return lifs.find((s) => s === `LIF${anio}`) || (t.length === 3 ? lifs.at(-1) : null) || `LIF${anio}`;
+  // "lif" / "rmf" (o "miscelanea") sin año → la del año en curso (o la más reciente cargada)
+  const anual = t.match(/^(lif|rmf|miscelanea)(\d{2}|\d{4})?$/);
+  if (anual) {
+    const pref = anual[1] === "lif" ? "LIF" : "RMF";
+    const anio = anual[2] ? (anual[2].length === 2 ? "20" + anual[2] : anual[2]) : String(new Date().getFullYear());
+    const docs = catalogo.filter((l) => l.siglas.startsWith(pref)).map((l) => l.siglas).sort();
+    return docs.find((s) => s === `${pref}${anio}`) || (!anual[2] ? docs.at(-1) : null) || `${pref}${anio}`;
   }
   return ALIAS[t] || null;
 }

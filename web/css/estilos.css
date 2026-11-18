@@ -476,3 +476,36 @@ a.tarjeta:hover { border-color: var(--acento); }
   background: var(--superficie); border: 1px solid var(--borde); color: var(--texto); font-variant-numeric: tabular-nums;
 }
 .remisiones-ley a:hover { border-color: var(--acento); color: var(--acento); }
+
+/* ---------- RMF (fase 4) ---------- */
+.arbol a.con-titulo { padding: 4px 8px 4px 20px; line-height: 1.35; }
+.arbol a.con-titulo b { color: var(--texto); font-variant-numeric: tabular-nums; margin-right: 2px; }
+.arbol a.documento { padding: 4px 8px 4px 20px; line-height: 1.35; }
+.arbol a.documento small { color: var(--texto-tenue); }
+.marca-pendiente { color: #c2410c; font-size: .7rem; vertical-align: middle; }
+.indice .lista-reglas { display: flex; flex-direction: column; gap: 2px; padding: 4px 0 6px; }
+.indice .lista-reglas a { padding: 5px 8px; border-radius: 6px; text-decoration: none; color: var(--texto-suave); font-size: .9rem; }
+.indice .lista-reglas a:hover { background: var(--superficie); color: var(--acento); }
+.indice .lista-reglas b { color: var(--texto); margin-right: 6px; font-variant-numeric: tabular-nums; }
+.epigrafe { font-family: var(--fuente-ley); font-style: italic; font-size: 1.12rem; color: var(--texto-suave); margin: 0 0 6px; }
+.epigrafe-res { font-weight: 400; color: var(--texto-suave); font-size: .9rem; margin-left: 6px; }
+.referencias-sat {
+  font-family: var(--fuente-ui); font-size: .85rem; color: var(--texto-suave);
+  border-top: 1px dashed var(--borde); padding-top: 10px; margin-top: 4px;
+}
+.referencias-sat span:first-child { font-weight: 650; margin-right: 4px; }
+.referencias-sat a.ref { color: var(--enlace); }
+.aviso-cambio, .aviso-compilado {
+  border: 1px solid #f0b37e; background: #fff7ed; color: #3b2a1a;
+  border-radius: 10px; padding: 12px 16px; margin: 0 0 20px; font-size: .92rem;
+}
+[data-tema="oscuro"] .aviso-cambio, [data-tema="oscuro"] .aviso-compilado { background: #2a1f14; border-color: #7a4a1e; color: #f3dfc8; }
+.aviso-compilado { border-color: var(--borde); background: var(--superficie); color: var(--texto); }
+[data-tema="oscuro"] .aviso-compilado { background: var(--superficie); border-color: var(--borde); color: var(--texto); }
+.aviso-cambio.nueva { border-color: #86c5a4; background: #effaf3; color: #17331f; }
+[data-tema="oscuro"] .aviso-cambio.nueva { background: #13261b; border-color: #2f6b47; color: #cfeedd; }
+.aviso-cambio summary { cursor: pointer; }
+.aviso-cambio .extracto { font-size: 1rem; border-left: 3px solid #f0b37e; padding-left: 14px; margin: 10px 0; }
+.aviso-cambio .ayuda, .aviso-compilado .ayuda { color: inherit; opacity: .8; }
+.aviso-compilado ul { margin: 6px 0; padding-left: 20px; }
+.texto-aviso { color: #c2410c; }

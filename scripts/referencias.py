@@ -30,6 +30,14 @@ RE_CORTE = re.compile(r"\b[Aa]rt[íi]culos?\b|;|\.\s+[A-ZÁÉÍÓÚ]")
 
 # Calificadores, del más específico al más general. Grupo = tipo de destino.
 CALIFICADORES = [
+    (r"del Reglamento del CFF", "RCFF"),
+    (r"del Reglamento de la Ley del ISR", "RLISR"),
+    (r"del Reglamento de la Ley del IVA", "RLIVA"),
+    (r"de su Reglamento", "@reglamento_anterior"),
+    (r"del CFF\b", "CFF"),
+    (r"de la Ley del ISR\b", "LISR"),
+    (r"de la Ley del IVA\b", "LIVA"),
+    (r"de la LIF\b|de la Ley de Ingresos de la Federación para (?:el Ejercicio Fiscal de )?\d{4}", "@lif_anio"),
     (r"del Reglamento del Código Fiscal de la Federación", "RCFF"),
     (r"del Reglamento de la Ley del Impuesto sobre la Renta", "RLISR"),
     (r"del Reglamento de la Ley del Impuesto al Valor Agregado", "RLIVA"),
@@ -42,13 +50,16 @@ CALIFICADORES = [
     (r"de la Ley del Impuesto al Valor Agregado", "LIVA"),
     (r"de la Ley de Ingresos de la Federación", "!lif"),
     (r"de (?:esta|la presente) Ley|de(?:l)? (?:este|presente) ordenamiento", "@esta_ley"),
-    (r"del mismo Código", "CFF"),
+    (r"del mismo Código|de dicho Código|del citado Código|del referido Código", "CFF"),
+    (r"de (?:dicha|la citada|la referida|la mencionada) Ley\b|de (?:dicho|el citado|el referido|el mencionado) ordenamiento|"
+     r"del (?:citado|referido|mencionado) ordenamiento|de (?:dicho|el citado|el referido) Reglamento|del (?:citado|referido) Reglamento", "@anterior"),
     (r"de la misma(?! fracción| Ley)|del mismo(?! párrafo| Código)", "@anterior"),
     (r"de la Ley\b(?!\s+(?:del|de|Federal|General|Aduanera|Orgánica|para|sobre|Agraria|Minera|Nacional|que|en|a la))", "@ley_padre"),
     (r"de la Ley [A-ZÁÉÍÓÚ]|de la Ley de |de la Ley del |del Código (?:Civil|Penal|Nacional|de Comercio|Federal)|de la Constitución", "!externa"),
 ]
 RE_CALIF = re.compile("|".join(f"(?P<c{i}>{p})" for i, (p, _) in enumerate(CALIFICADORES)))
 VENTANA = 180
+REGLAMENTO_DE = {"LISR": "RLISR", "CFF": "RCFF", "LIVA": "RLIVA"}
 # Referencias a una VERSIÓN ANTERIOR de la ley ("…de la Ley del ISR que se abroga", "vigente hasta 2013"):
 # el número puede coincidir con un artículo actual que dice otra cosa, así que nunca se ligan.
 RE_HISTORICA = re.compile(
@@ -82,6 +93,11 @@ def _destino(tipo: str, ley: dict, anterior: str | None) -> tuple[str | None, st
         return (ley["ley_padre"], None) if ley.get("ley_padre") else (None, "«de la Ley» sin nombre (dentro de una ley)")
     if tipo == "@anterior":
         return (anterior, None) if anterior else (None, "«de la misma» sin ley previa")
+    if tipo == "@reglamento_anterior":
+        return (REGLAMENTO_DE.get(anterior), None) if REGLAMENTO_DE.get(anterior) else (None, "«de su Reglamento» sin ley previa")
+    if tipo == "@lif_anio":
+        anio = re.search(r"(\d{4})$", s)
+        return (f"LIF{anio.group(1)}", None) if anio else (None, "«de la LIF» fuera de un documento anual")
     if tipo == "!lif":
         return None, "Ley de Ingresos sin año (no se puede saber cuál)"
     return None, "ley no cargada en el buscador"
@@ -161,6 +177,22 @@ def enlazar(leyes: dict[str, dict]) -> tuple[dict, list[list[str]]]:
                                 i0, i1 = ids_pos(orden[destino], id_dest), ids_pos(orden[destino], fin_id)
                                 if 0 <= i0 < i1:
                                     refs.update(orden[destino][i0 + 1:i1])
+            if ley["tipo"] == "resolucion":
+                for r_i, linea in enumerate(renglones):
+                    if linea.startswith(("|", "[[")):
+                        continue
+                    ocupados = [(e[1], e[2]) for e in enlaces if e[0] == r_i]
+                    for a, b, ruta, id_dest in enlaces_reglas(linea, s, ids[s]):
+                        if not any(a < y and b > x for x, y in ocupados):
+                            enlaces.append([r_i, a, b, ruta])
+                            refs.add(id_dest)
+                            stats[s]["enlaces"] += 1
+            u["enlaces_refs"] = []
+            if u.get("referencias_sat"):
+                for a, b, ruta, id_dest in enlaces_referencias_sat(u["referencias_sat"], s, ids):
+                    u["enlaces_refs"].append([a, b, ruta])
+                    refs.add(id_dest)
+                    stats[s]["enlaces"] += 1
             refs.discard(u["id"])
             u["enlaces"] = enlaces
             u["referencias"] = sorted(refs)
@@ -171,6 +203,60 @@ def enlazar(leyes: dict[str, dict]) -> tuple[dict, list[list[str]]]:
         for u in d["unidades"]:
             u["citado_por"] = sorted(citado_por.get(u["id"], ()))
     return stats, no_resueltas
+
+
+NUM_REGLA = r"\d+(?:\.\d+){1,4}"
+RE_REGLAS = re.compile(rf"\b[Rr]eglas?\s+((?:{NUM_REGLA}\.?)(?:(?:\s*,\s*|\s+y\s+|\s+e\s+|\s+o\s+|\s+a\s+|\s+al\s+){NUM_REGLA}\.?)*)")
+RE_OTRA_RESOLUCION = re.compile(r"^\.?,?\s*(?:de\s+las\s+RGCE|de\s+las\s+Reglas\s+Generales|de\s+la\s+RMF\s+para\s+(?!2026)\d{4}|"
+                                r"de\s+la\s+Resolución\s+Miscelánea\s+Fiscal\s+para\s+(?!2026)\d{4}|de\s+la\s+RFA)")
+# Siglas del renglón oficial de referencias de la RMF ("CFF 28, 30, RMF 2.8.1.4.")
+SIGLAS_REFS = {"CFF": "CFF", "LISR": "LISR", "LIVA": "LIVA", "RCFF": "RCFF", "RLISR": "RLISR", "RLIVA": "RLIVA",
+               "RMF": "@mismo", "LIF": "@lif_anio"}
+RE_SIGLA_REF = re.compile(r"\b([A-Z][A-Za-z]{1,9})\b")
+
+
+def enlaces_reglas(linea: str, s: str, ids_rmf: set) -> list:
+    """'regla 2.7.1.8.' dentro de la RMF → enlaces a la misma RMF (salvo que cite otra resolución)."""
+    out = []
+    for m in RE_REGLAS.finditer(linea):
+        if RE_OTRA_RESOLUCION.match(linea[m.end():m.end() + 70]):
+            continue
+        base = m.start(1)
+        for n in re.finditer(NUM_REGLA, m.group(1)):
+            destino = f"{s.lower()}-{clave(n.group())}"
+            if destino in ids_rmf:
+                out.append([base + n.start(), base + n.end(), f"{s}/{clave(n.group())}", destino])
+    return out
+
+
+def enlaces_referencias_sat(texto: str, s: str, ids: dict) -> list:
+    """Renglón oficial de referencias: cada número se liga a su ley (o regla) si existe."""
+    out = []
+    marcas = [(m.start(), m.end(), m.group(1)) for m in RE_SIGLA_REF.finditer(texto)]
+    for i, (a, b, sig) in enumerate(marcas):
+        destino = SIGLAS_REFS.get(sig)
+        if not destino:
+            continue
+        if destino == "@mismo":
+            destino = s
+        elif destino == "@lif_anio":
+            anio = re.search(r"(\d{4})$", s)
+            destino = f"LIF{anio.group(1)}" if anio else None
+        if destino not in ids:
+            continue
+        fin = marcas[i + 1][0] if i + 1 < len(marcas) else len(texto)
+        tramo = texto[b:fin]
+        if re.match(r"\s+\d{4}\s", tramo):       # "LIEPS 2021 5o.-D": otra versión de la ley
+            continue
+        patron = NUM_REGLA if destino.startswith("RMF") else NUM
+        for n in re.finditer(patron, tramo):
+            # solo números en la lista inicial (antes de cualquier palabra)
+            if re.search(r"[A-Za-zÁÉÍÓÚáéíóú]{3,}", tramo[:n.start()]):
+                break
+            id_dest = f"{destino.lower()}-{clave(n.group())}"
+            if id_dest in ids[destino]:
+                out.append([b + n.start(), b + n.end(), f"{destino}/{clave(n.group())}", id_dest])
+    return out
 
 
 def ids_pos(lista: list[str], x: str) -> int:

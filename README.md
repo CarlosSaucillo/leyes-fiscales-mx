@@ -15,7 +15,7 @@ el texto con validez oficial es el publicado en el DOF.
 | 1 | Extractor corregido + interfaz web con la LISR | ✅ |
 | 2 | Pestañas, historial, notas, copiar con cita, ir directo (LISR 27), correlaciones manuales | ✅ |
 | 3 | RLISR, CFF, RCFF, LIVA, RLIVA, LIF 2026 y 2027 + hipervínculos automáticos | ✅ |
-| 4 | RMF 2026 y versiones anticipadas | pendiente |
+| 4 | RMF 2026: compilado del SAT + modificaciones y versiones anticipadas posteriores | ✅ |
 | 5 | Fechas de reforma por artículo y comparación de versiones | pendiente |
 
 ## Usarlo en tu computadora
@@ -41,6 +41,26 @@ python3 -m http.server 8000 -d web
 - **Sugerir correlación:** vincula dos artículos. Para compartirlas con la oficina: *Mis notas → Exportar correlaciones para la oficina*
   y reemplazar `web/data/correlaciones_manuales.json`.
 
+## Resolución Miscelánea Fiscal (RMF)
+
+`scripts/build_rmf.py` arma la RMF 2026 desde el portal del SAT (solo documentos oficiales):
+
+- **Texto vigente = el compilado más reciente del SAT** (la RMF con las modificaciones que el SAT ya integró), separado
+  regla por regla, con su título, el renglón oficial de referencias y la fecha de su última modificación.
+- **Lo posterior al compilado** (resoluciones ya publicadas en el DOF y versiones anticipadas aún sin publicar) no se
+  "aplica" sobre el texto: cada regla afectada muestra un aviso con el extracto oficial tal como se publicó. Las reglas
+  nuevas se agregan completas y marcadas.
+- Todas las resoluciones, versiones anticipadas y anexos quedan listados en el árbol con su PDF.
+
+Para actualizar (por ejemplo, cada jueves, cuando el SAT suele publicar versiones anticipadas):
+
+```bash
+python3 scripts/build_rmf.py --descargar
+```
+
+El reporte `web/data/reportes/validacion_RMF2026.txt` coteja las reglas contra la RMF original publicada en el DOF:
+toda regla nueva debe estar anotada como «Adicionada» y ninguna original debe desaparecer sin explicación.
+
 ## Hipervínculos entre artículos
 
 `scripts/referencias.py` convierte en enlaces las referencias que **nombran el ordenamiento**:
@@ -56,6 +76,7 @@ scripts/build_data.py            extractor: .doc oficial → JSON (+ validación
 scripts/imagenes_oficiales.json  ubicación de tarifas/fórmulas que el documento oficial publica como imagen
 scripts/pdf_a_texto.swift        lector de PDF (macOS) para cotejar contra el PDF oficial
 scripts/referencias.py           detector de referencias entre artículos (hipervínculos)
+scripts/build_rmf.py             extractor de la RMF (compilado del SAT + modificaciones posteriores)
 web/                             la página (lo que se publica)
 web/data/catalogo.json           metadatos de cada ley
 web/data/<SIGLAS>.json           una ley por archivo: metadatos, estructura y artículos
