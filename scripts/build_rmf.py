@@ -142,7 +142,19 @@ RUIDO = [
 
 
 def limpiar(lineas: list[str]) -> list[str]:
-    return [l.rstrip() for l in lineas if l.strip() and not any(r.search(l.strip()) for r in RUIDO)]
+    return limpiar_con_paginas(lineas)[0]
+
+
+def limpiar_con_paginas(lineas: list[str]) -> tuple[list[str], list[int]]:
+    """Quita encabezados/pies y devuelve, para cada renglón, la página del PDF donde está."""
+    salida, paginas, pagina = [], [], 1
+    for l in lineas:
+        if m := re.match(r"^Página (\d+) de \d+$", l.strip()):
+            pagina = int(m.group(1))
+        if l.strip() and not any(r.search(l.strip()) for r in RUIDO):
+            salida.append(l.rstrip())
+            paginas.append(pagina)
+    return salida, paginas
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +182,9 @@ def parrafos(lineas: list[str], ancho: int) -> list[str]:
         elif RE_INICIO_LISTA.match(l) or (anterior.endswith((".", ":", ";", "”", ".”")) and len(anterior) < ancho * 0.82):
             out.append(l)
         elif out[-1].endswith("-") and l[:1].islower():
-            out[-1] = out[-1][:-1] + l
+            out[-1] = out[-1][:-1] + l                       # palabra partida: "contribu-" + "yente"
+        elif re.search(r"[\w.]-$", out[-1]) or re.search(r"(https?://|www\.)\S*[^\s,;.)]$", out[-1]):
+            out[-1] = out[-1] + l                            # "18-" + "J", "NOM-012-" + "SCT", direcciones web
         else:
             out[-1] = out[-1] + " " + l
         anterior = l
@@ -217,7 +231,7 @@ def leer_indice(lineas: list[str]) -> tuple[dict, int]:
 # ---------------------------------------------------------------------------
 RE_REGLA = re.compile(r"^(\d+(?:\.\d+){1,4})\. (.*)$")
 RE_DIV = re.compile(r"^(Título|Capítulo|Sección|Subsección) (\d+(?:\.\d+)*)\.(?: (.*))?$")
-RE_ANOT_OBJ = re.compile(r"^(Regla (\d+(?:\.\d+)+)\.|Glosario.*|Título \d+.*|Capítulo [\d.]+.*|Sección [\d.]+.*|Subsección [\d.]+.*|Transitorios?.*)$")
+RE_ANOT_OBJ = re.compile(r"^(Regla (\d+(?:\.\d+)+)\.|Glosario.*|Numeral \d+.*|Título \d+.*|Capítulo [\d.]+.*|Sección [\d.]+.*|Subsección [\d.]+.*|Transitorios?.*)$")
 RE_ANOT = re.compile(r"^- (Reformad[oa]s?|Adicionad[oa]s?|Derogad[oa]s?|Se deroga)\b(.*)$")
 RE_ANOT_FECHA = re.compile(r"publicad[oa] en el DOF el (\d{1,2}) de (\w+) de (\d{4})")
 RE_REFS = re.compile(
@@ -249,6 +263,9 @@ def es_titulo(l: str) -> bool:
 
 
 ANCHO = 100   # ancho típico de renglón del documento en turno (se fija al parsear)
+# Un renglón de referencias que termina así ya está completo (no sigue abajo)
+RE_FIN_REFS = re.compile(r"(?:[\d.]|\b(?:Primero|Segundo|Tercero|Cuarto|Quinto|Sexto|Séptimo|Octavo|Noveno|Décimo|"
+                         r"Único|Transitorio|Transitorios|Bis|Ter|Quáter|[A-Z]))\s*$")
 
 
 def separar_epigrafe(buffer: list[str]) -> tuple[list[str], list[str]]:
@@ -263,12 +280,16 @@ def separar_epigrafe(buffer: list[str]) -> tuple[list[str], list[str]]:
     k = len(buffer) - 1
     while k > 0 and len(buffer) - k < 7 and es_titulo(buffer[k - 1]):
         k -= 1
-    refs_abiertas = k > 0 and RE_REFS.match(buffer[k - 1].strip()) and len(buffer[k - 1].strip()) >= ANCHO * 0.8
-    if refs_abiertas:
-        cola = [j for j in range(k, len(buffer) - 1)
-                if RE_PARECE_REF.search(buffer[j]) or re.search(r"\d\s*$", buffer[j].strip())]
-        if cola:
-            k = cola[-1] + 1
+    # Referencias que siguen en los renglones de abajo: un renglón continúa las referencias solo si el
+    # anterior llegó al margen derecho (el texto se "desbordó"). El primero que no llega cierra las referencias.
+    if k > 0 and RE_REFS.match(buffer[k - 1].strip()):
+        j = k
+        # sigue solo si el renglón anterior llegó al margen Y quedó "a media frase" (termina en palabra o coma);
+        # si termina en número o punto ("…RMF 2.7.1.8.") las referencias ya estaban completas
+        while j < len(buffer) - 1 and len(buffer[j - 1].strip()) >= ANCHO * 0.85 \
+                and not RE_FIN_REFS.search(buffer[j - 1].strip()):
+            j += 1
+        k = j
     while k < len(buffer) - 1 and (not (buffer[k].strip()[:1].isupper() or buffer[k].strip()[:1] in "“(¿")
                                    or re.search(r"\d{1,2}/\d{2}/\d{4}", buffer[k])):
         k += 1
@@ -286,8 +307,25 @@ def separar_referencias(texto: list[str]) -> tuple[list[str], str]:
     return texto, ""
 
 
+RE_NUMERICO = re.compile(r"^[\d.,%$()\-–]+$")
+
+
+def marcar_contenido_no_textual(u: dict) -> None:
+    """Tablas que el PDF desarma (párrafos casi solo de números) y fórmulas que son imagen ("Donde:" sin fórmula)."""
+    ps = u["texto"].split("\n")
+    tablas = []
+    for i, p in enumerate(ps):
+        toks = p.split()
+        if len(toks) >= 12 and sum(1 for t in toks if RE_NUMERICO.match(t)) / len(toks) >= 0.45:
+            tablas.append(i)
+    if tablas:
+        u["tablas_pdf"] = tablas
+    if any(p.strip().startswith("Donde:") for p in ps):
+        u["formula_pdf"] = True
+
+
 def parsear_compilado(lineas_crudas: list[str], fuente: str) -> tuple[list[dict], dict, dict]:
-    lineas = limpiar(lineas_crudas)
+    lineas, paginas = limpiar_con_paginas(lineas_crudas)
     toc, ini = leer_indice(lineas)
     global ANCHO
     ancho = ANCHO = ancho_tipico(lineas)
@@ -328,6 +366,7 @@ def parsear_compilado(lineas_crudas: list[str], fuente: str) -> tuple[list[dict]
         abierta["reformas"] = fechas
         abierta["ultima_reforma"] = fechas[-1] if fechas else None
         abierta["notas_compilado"] = [t for t, _ in notas]
+        marcar_contenido_no_textual(abierta)
         unidades.append(abierta)
         abierta = None
 
@@ -356,8 +395,8 @@ def parsear_compilado(lineas_crudas: list[str], fuente: str) -> tuple[list[dict]
                 tipo = RE_ANOT.match(nota).group(1)
                 notas.append((tipo, _iso(m) if m else None))
                 j += 1
-            if en_transitorios:
-                # dentro de los transitorios: queda como nota en su lugar, sin cerrar el bloque
+            if en_transitorios or (abierta and abierta["unidad"] == "glosario" and objetivo.startswith("Numeral")):
+                # dentro de los transitorios o del glosario: queda como nota en su lugar, sin cerrar el bloque
                 for tipo, f in notas:
                     fecha_dof = "-".join(reversed(f.split("-"))) if f else ""
                     buffer.append("\x00" + f"{objetivo} {tipo.lower()} DOF {fecha_dof}".strip())
@@ -430,7 +469,7 @@ def parsear_compilado(lineas_crudas: list[str], fuente: str) -> tuple[list[dict]
                 previo, epigrafe = separar_epigrafe(buffer)
                 cerrar(previo)
                 abierta = {"unidad": "regla", "numero": num, "titulo_regla": " ".join(epigrafe).strip(),
-                           "ruta": ruta_de(num), "fuente": fuente}
+                           "ruta": ruta_de(num), "fuente": fuente, "pagina": paginas[k]}
                 buffer = [resto] if resto else []
                 ultima_regla = t
                 k += 1
@@ -497,6 +536,12 @@ def parsear_modificacion(lineas_crudas: list[str]) -> dict:
         e["completa"] = "…" not in e["texto"] and "..." not in e["texto"]
     return {"extractos": extractos, "derogadas": sorted(derogadas, key=_tupla), "otras_zonas": otras_zonas,
             "texto_completo": "\n".join(parrafos(lineas, ancho))}
+
+
+def _ids(unidades: list[dict]) -> None:
+    for u in unidades:
+        u["id"] = f"{SIGLAS.lower()}-glosario" if u["unidad"] == "glosario" else \
+            f"{SIGLAS.lower()}-transitorios-1" if u["unidad"] == "transitorio" else bd.id_unidad(SIGLAS, u["numero"])
 
 
 # ---------------------------------------------------------------------------
@@ -570,6 +615,7 @@ def main() -> None:
     args = ap.parse_args()
     FUENTES.mkdir(parents=True, exist_ok=True)
     if args.enlazar:
+        bd.generar_versiones_todas()
         bd.actualizar_catalogo()
         bd.enlazar_todas()
         return
@@ -695,6 +741,39 @@ def main() -> None:
     datos = {"ley": meta, "unidades": todas}
 
     reporte = validar(todas, diag, base_nums, sobrantes) + ["", "Posteriores al compilado:"] + (reporte_pend or ["  ninguno"])
+
+    # Versiones: la RMF original del DOF y cada compilado del SAT (textos oficiales completos)
+    reporte += ["", "Versiones guardadas:"]
+    unid_base, _, _ = parsear_compilado(pdf_a_lineas(pdf_base), base["url"])
+    _ids(unid_base)
+    bd.guardar_version(SIGLAS, f"{ANIO - 1}-12-28", "RMF original (DOF 28-12-2025)", base["url"], unid_base)
+    reporte.append(f"  RMF original (DOF): {sum(1 for x in unid_base if x['unidad'] == 'regla')} reglas")
+    for c in compilados:
+        f_rm = next((d.get("fecha") for d in rms if d["rm"] == c["rm"]), None)
+        if not f_rm:
+            reporte.append(f"⚠ sin fecha para el {c['titulo']}; no se guarda como versión")
+            continue
+        if c is comp:
+            unid_c = [x for x in todas if not x.get("nueva_en")]
+        else:
+            unid_c, _, _ = parsear_compilado(pdf_a_lineas(descargar_pdf(c["url"], FUENTES / f"compilado{c['rm']}.pdf")), c["url"])
+            _ids(unid_c)
+        bd.guardar_version(SIGLAS, f_rm, f"Compilado del SAT con la {ORDINALES[c['rm']]} RMRMF (DOF {f_rm[8:]}-{f_rm[5:7]}-{f_rm[:4]})",
+                           c["url"], unid_c)
+        reporte.append(f"  {c['titulo']} ({f_rm}): {sum(1 for x in unid_c if x['unidad'] == 'regla')} reglas")
+    # Validación cruzada: un título que cambia entre versiones sin anotación suele ser un error de extracción
+    fotos = [json.loads(f.read_text(encoding="utf-8")) for f in sorted((bd.HISTORICO / SIGLAS).glob("*.json"))]
+    anotadas = {x["id"] for x in todas if x.get("reformas")}
+    def distintos(grupo):
+        return sorted({uid for f in grupo for uid, tit in f.get("titulos", {}).items()
+                       if uid not in anotadas and fotos[-1].get("titulos", {}).get(uid) not in (None, tit)})
+    comp_fotos = [f for f in fotos if f["version"] != f"{ANIO - 1}-12-28"]
+    d_comp, d_dof = distintos(comp_fotos), distintos(fotos)
+    reporte.append(f"⚠ títulos distintos entre compilados sin anotación (revisar extracción): {d_comp}" if d_comp
+                   else "✓ los títulos de las reglas coinciden entre todos los compilados del SAT")
+    if set(d_dof) - set(d_comp):
+        reporte.append(f"  títulos distintos solo en la RMF original del DOF (otro formato de página; no afecta el texto vigente): "
+                       f"{sorted(set(d_dof) - set(d_comp))}")
     for u in todas:
         u.pop("notas_compilado", None)
     (bd.SALIDA / f"{SIGLAS}.json").write_text(json.dumps(datos, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
@@ -702,6 +781,7 @@ def main() -> None:
         f"Reporte de validación — {SIGLAS} — {hoy}\n\n" + "\n".join(reporte) + "\n", encoding="utf-8")
     for l in reporte:
         print(f"  {l}")
+    bd.generar_versiones_todas()
     bd.actualizar_catalogo()
     bd.enlazar_todas()
 

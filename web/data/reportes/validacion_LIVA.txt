@@ -1,4 +1,4 @@
-Reporte de validación — LIVA — 2026-11-18
+Reporte de validación — LIVA — 2026-11-19
 
 80 artículos + 29 bloques de transitorios/decretos
 ✓ tablas reconstruidas: 2 de 2
@@ -13,4 +13,4 @@ Reporte de validación — LIVA — 2026-11-18
 ✓ sin residuos de códigos de Word
   revisar a mano (> 5× la mediana de 1,220 car.): 1o.-C (7,849 car.), 2o.-A (6,255 car.), 5o (18,299 car.), 15 (12,052 car.), 32 (6,492 car.)
   publicación: 1978-12-29 · última reforma: 2021-11-12 · artículos con fecha de reforma: 80
-✓ cotejo con PDF oficial: los 80 artículos aparecen palabra por palabra en el PDF
+✓ sin reformas publicadas pendientes de integrar

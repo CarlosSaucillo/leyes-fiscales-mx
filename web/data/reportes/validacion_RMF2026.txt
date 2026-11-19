@@ -1,4 +1,4 @@
-Reporte de validación — RMF2026 — 2026-11-18
+Reporte de validación — RMF2026 — 2026-11-19
 
 1221 reglas + glosario + 1 bloque(s) de transitorios
 ✓ sin reglas duplicadas
@@ -13,3 +13,11 @@ Posteriores al compilado:
   Cuarta Resolución de Modificaciones a la RMF para 2026 (DOF 2026-10-30): 28 reglas tocadas, 6 nuevas agregadas completas, 1 derogadas
   Primera versión anticipada de la Quinta RMRMF 2026 (2026-11-05): 1 reglas tocadas, 0 nuevas agregadas completas, 0 derogadas
   Segunda versión anticipada de la Quinta RMRMF 2026 (2026-11-12): 1 reglas tocadas, 0 nuevas agregadas completas, 0 derogadas
+
+Versiones guardadas:
+  RMF original (DOF): 1208 reglas
+  Compilado 1a. RM RMF 2026 (2026-07-09): 1215 reglas
+  Compilado 2a. RM RMF 2026 (2026-10-01): 1215 reglas
+  Compilado 3a. RM RMF 2026 (2026-10-02): 1215 reglas
+✓ los títulos de las reglas coinciden entre todos los compilados del SAT
+  títulos distintos solo en la RMF original del DOF (otro formato de página; no afecta el texto vigente): ['rmf2026-11-4-4', 'rmf2026-11-5-4', 'rmf2026-2-12-2']

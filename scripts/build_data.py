@@ -37,6 +37,9 @@ IMAGENES_SALIDA = SALIDA / "img"
 # Ubicación (revisada a mano) de las imágenes oficiales: tarifas y fórmulas que el
 # documento de la Cámara publica como imagen y no como texto.
 IMAGENES_CONFIG = RAIZ / "scripts" / "imagenes_oficiales.json"
+# Fotos completas de cada versión (se guardan en el repositorio; no se publican)
+HISTORICO = RAIZ / "historico"
+VERSIONES = SALIDA / "versiones"
 
 LEYESBIBLIO = "https://www.diputados.gob.mx/LeyesBiblio"
 
@@ -49,7 +52,7 @@ NORMAS = {
     "LISR": {
         "nombre": "Ley del Impuesto sobre la Renta",
         "tipo": "ley", "archivo": "doc/LISR.doc", "pdf": "pdf/LISR.pdf",
-        "reglamento": "RLISR",
+        "reglamento": "RLISR", "historial": "ref/lisr.htm",
     },
     "RLISR": {
         "nombre": "Reglamento de la Ley del Impuesto sobre la Renta",
@@ -59,7 +62,7 @@ NORMAS = {
     "CFF": {
         "nombre": "Código Fiscal de la Federación",
         "tipo": "ley", "archivo": "doc/CFF.doc", "pdf": "pdf/CFF.pdf",
-        "reglamento": "RCFF",
+        "reglamento": "RCFF", "historial": "ref/cff.htm",
     },
     "RCFF": {
         "nombre": "Reglamento del Código Fiscal de la Federación",
@@ -69,7 +72,7 @@ NORMAS = {
     "LIVA": {
         "nombre": "Ley del Impuesto al Valor Agregado",
         "tipo": "ley", "archivo": "doc/LIVA.doc", "pdf": "pdf/LIVA.pdf",
-        "reglamento": "RLIVA",
+        "reglamento": "RLIVA", "historial": "ref/liva.htm",
     },
     "RLIVA": {
         "nombre": "Reglamento de la Ley del Impuesto al Valor Agregado",
@@ -650,6 +653,161 @@ def validar(datos: dict, diag: dict, lineas: list[str]) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Reformas publicadas en el DOF que la Cámara de Diputados aún no integra al texto
+# ---------------------------------------------------------------------------
+DECRETOS = FUENTES / "decretos"
+RE_HIST_ENTRADA = re.compile(r'href="([^"]+\.pdf)"[^>]*>\s*DOF\s*(\d{2})[-/](\d{2})[-/](\d{4})\s*</a>', re.I)
+RE_VIGOR = re.compile(r"entrará en vigor (?:el|a partir del) (\d{1,2})o? de (\w+) de (\d{4})", re.I)
+RE_CONTINUA = re.compile(r"^(?:[IVXLC]+\.(?:\s+(?:a|y)\s+[IVXLC]+\.)?|[a-z]\)(?:\s+(?:a|y)\s+[a-z]\))?)?\s*(?:\.\.\.|…)\s*$")
+
+
+def historial_reformas(siglas: str, descargar_de_nuevo: bool) -> list[dict]:
+    """Entradas 'DOF dd-mm-aaaa' de la página de historial de LeyesBiblio (ref/xxx.htm)."""
+    pag = NORMAS[siglas].get("historial")
+    if not pag:
+        return []
+    destino = FUENTES / f"historial_{siglas}.htm"
+    if descargar_de_nuevo or not destino.exists():
+        req = urllib.request.Request(f"{LEYESBIBLIO}/{pag}", headers={"User-Agent": "Mozilla/5.0 (compatible; leyes-fiscales)"})
+        with urllib.request.urlopen(req, timeout=120) as r:
+            destino.write_bytes(r.read())
+    h = destino.read_text(encoding="latin-1")
+    base = f"{LEYESBIBLIO}/{pag.rsplit('/', 1)[0]}/"
+    entradas = []
+    for url, d, m, a in RE_HIST_ENTRADA.findall(h):
+        nombre = url.rsplit("/", 1)[-1].lower()
+        tipo = ("original" if "_orig" in nombre else "cantidades" if "_cant" in nombre else
+                "sentencia" if "_sent" in nombre else "fe de erratas" if "_fe" in nombre else "reforma")
+        entradas.append({"fecha": f"{a}-{m}-{d}", "tipo": tipo, "pdf": base + url, "doc": base + url[:-4] + ".doc"})
+    return entradas
+
+
+def reformas_pendientes(siglas: str, datos: dict, descargar_de_nuevo: bool) -> list[str]:
+    """Decretos posteriores a la última reforma del texto compilado: aviso por artículo con el extracto
+    oficial; artículos nuevos completos; disposiciones transitorias del decreto como bloque propio."""
+    ley = datos["ley"]
+    ultima = ley.get("ultima_reforma") or ley.get("publicacion") or "0000"
+    nuevas = [e for e in historial_reformas(siglas, descargar_de_nuevo) if e["fecha"] > ultima and e["tipo"] != "original"]
+    ley["pendientes"] = []
+    if not nuevas:
+        return ["✓ sin reformas publicadas pendientes de integrar" if NORMAS[siglas].get("historial") else
+                "  (sin página de historial en LeyesBiblio; no se revisan reformas pendientes)"]
+    DECRETOS.mkdir(parents=True, exist_ok=True)
+    avisos = []
+    por_id = {u["id"]: u for u in datos["unidades"]}
+    for e in sorted(nuevas, key=lambda x: x["fecha"]):
+        titulo_doc = f"Decreto de reforma DOF {e['fecha'][8:]}-{e['fecha'][5:7]}-{e['fecha'][:4]}"
+        ley["pendientes"].append({"titulo": titulo_doc, "fecha": e["fecha"], "url": e["pdf"], "tipo": e["tipo"]})
+        if e["tipo"] != "reforma":
+            avisos.append(f"⚠ {e['tipo']} DOF {e['fecha']} posterior al texto compilado (revisar a mano): {e['pdf']}")
+            continue
+        doc = DECRETOS / e["doc"].rsplit("/", 1)[-1]
+        if descargar_de_nuevo or not doc.exists():
+            req = urllib.request.Request(e["doc"], headers={"User-Agent": "Mozilla/5.0 (compatible; leyes-fiscales)"})
+            with urllib.request.urlopen(req, timeout=180) as r:
+                doc.write_bytes(r.read())
+        txt = doc.with_suffix(".txt")
+        subprocess.run(["textutil", "-convert", "txt", str(doc), "-output", str(txt)], check=True, capture_output=True)
+        lineas = [l.replace("\t", " ").rstrip() for l in txt.read_text(encoding="utf-8").splitlines()]
+        # quitar encabezados/pies de página del DOF (residuos de Word)
+        lineas = [l for l in lineas if not re.search(r"MERGEFORMAT|EMBED Word|NUMPAGES", l)]
+        texto_completo = "\n".join(lineas)
+        vigor = RE_VIGOR.search(texto_completo)
+        en_vigor = f"{vigor.group(3)}-{MESES.get(vigor.group(2).lower(), 0):02d}-{int(vigor.group(1)):02d}" if vigor else None
+        estado = ("publicado en el DOF; la Cámara de Diputados aún no publica el texto actualizado de la ley"
+                  + (f"; entra en vigor el {int(vigor.group(1))} de {vigor.group(2)} de {vigor.group(3)}" if vigor else ""))
+        ley["pendientes"][-1]["en_vigor"] = en_vigor
+
+        # Zona "para quedar como sigue:" → extractos por artículo
+        ini = next((k for k, l in enumerate(lineas) if "para quedar como sigue" in l), None)
+        if ini is None:
+            avisos.append(f"⚠ {titulo_doc}: no se encontró el texto reformado («para quedar como sigue»)")
+            continue
+        fin = next((k for k in range(ini + 1, len(lineas))
+                    if re.match(r"^(DISPOSICIONES|Artículo (Segundo|Tercero|Cuarto|Quinto)\.-|ARTÍCULO (SEGUNDO|TERCERO)|TRANSITORIOS?$|Transitorios?$)",
+                                lineas[k].strip())), len(lineas))
+        extractos, actual, encabezado, encab_actual = {}, None, None, None
+        k = ini + 1
+        while k < fin:
+            l = lineas[k].strip()
+            if (m := RE_DIVISION.match(l)) and not RE_ARTICULO.match(l):
+                nombre, k2 = leer_encabezado(lineas, k)
+                nivel = NIVELES[sin_acentos(m.group(1)).upper()]
+                encabezado = {"nivel": nivel, "etiqueta": f"{ETIQUETA_NIVEL[nivel]} {ordinal_bonito(m.group(2))}",
+                              "nombre": oracion(nombre) if nombre and nombre.lower() != "derogado" else nombre}
+                k = k2 + 1
+                continue
+            if m := RE_ARTICULO.match(l):
+                actual = m.group(1).strip()
+                extractos[actual] = {"lineas": [m.group(2)] if m.group(2) else [], "encabezado": encabezado}
+                encabezado = None
+            elif actual and l:
+                extractos[actual]["lineas"].append(l)
+            k += 1
+
+        n_mod = n_nuevos = n_derog = 0
+        for numero, x in extractos.items():
+            texto = "\n".join(x["lineas"]).strip()
+            derogado = bool(re.fullmatch(r"\(?(?:Se deroga|Derogado)\)?\.?", texto, re.I))
+            completo = not any(RE_CONTINUA.match(l) or l.strip() in ("...", "…") for l in x["lineas"])
+            uid = id_unidad(siglas, numero)
+            aviso = {"documento": titulo_doc, "fecha": e["fecha"], "url": e["pdf"], "estado": estado,
+                     "en_vigor": en_vigor, "titulo_regla": "", "texto": "Este artículo se deroga." if derogado else texto,
+                     "derogada": derogado}
+            if uid in por_id:
+                por_id[uid].setdefault("pendientes", []).append(aviso)
+                n_derog += derogado
+                n_mod += not derogado
+            elif completo and not derogado:
+                # artículo nuevo: se ubica junto al artículo base (78-A después del 78)
+                base = re.match(r"\d+", numero).group()
+                vecinos = [i for i, u in enumerate(datos["unidades"])
+                           if u["unidad"] == "articulo" and re.match(r"\d+", u["numero"]).group() == base]
+                pos = (vecinos[-1] + 1) if vecinos else len([u for u in datos["unidades"] if u["unidad"] == "articulo"])
+                ref = datos["unidades"][vecinos[-1]] if vecinos else None
+                ruta = list(ref["ruta"]) if ref else []
+                if x["encabezado"]:
+                    nivel_n = ORDEN_NIVEL[x["encabezado"]["nivel"]]
+                    ruta = [r for r in ruta if ORDEN_NIVEL.get(r["nivel"], 9) < nivel_n] + [x["encabezado"]]
+                elif extractos and ref is None:
+                    ruta = []
+                # los artículos siguientes del mismo bloque heredan el capítulo nuevo
+                previo = datos["unidades"][pos - 1] if pos > 0 else None
+                if not x["encabezado"] and previo and previo.get("nueva_en") and \
+                        re.match(r"\d+", previo["numero"]).group() == base:
+                    ruta = list(previo["ruta"])
+                etiqueta = lambda nivel: next((f"{r['etiqueta']} — {r['nombre']}" for r in ruta if r["nivel"] == nivel and r["nombre"]), None)
+                nueva = {"id": uid, "ley": siglas, "unidad": "articulo", "numero": numero,
+                         "titulo": etiqueta("titulo"), "capitulo": etiqueta("capitulo"), "seccion": etiqueta("seccion"),
+                         "ruta": ruta, "texto": texto, "reformas": [e["fecha"]], "ultima_reforma": e["fecha"],
+                         "fuente": e["pdf"], "referencias": [], "nueva_en": aviso}
+                datos["unidades"].insert(pos, nueva)
+                por_id[uid] = nueva
+                n_nuevos += 1
+            else:
+                avisos.append(f"⚠ {titulo_doc}: artículo {numero} no existe en el texto y el extracto no está completo")
+
+        # Disposiciones transitorias y de vigencia del decreto (todo lo posterior a la zona reformada)
+        resto = [l for l in lineas[fin:] if l.strip()]
+        if resto:
+            n = sum(1 for u in datos["unidades"] if u["unidad"] == "transitorio") + 1
+            datos["unidades"].append({
+                "id": f"{siglas.lower()}-transitorios-{n}", "ley": siglas, "unidad": "transitorio",
+                "numero": f"Transitorios {n}", "titulo": None, "capitulo": None, "seccion": None,
+                "ruta": [{"nivel": "transitorios", "etiqueta": "Transitorios y decretos de reforma", "nombre": None}],
+                "titulo_decreto": next((l.strip() for l in lineas if l.strip().startswith("DECRETO")), titulo_doc),
+                "fecha_publicacion": e["fecha"], "texto": "\n".join(resto), "reformas": [], "ultima_reforma": None,
+                "fuente": e["pdf"], "referencias": [],
+                "nueva_en": {"documento": titulo_doc, "fecha": e["fecha"], "url": e["pdf"], "estado": estado, "en_vigor": en_vigor},
+            })
+        avisos.append(f"⚠ {titulo_doc} aún no integrado al texto de la Cámara: {n_mod} artículos con aviso, "
+                      f"{n_nuevos} nuevos agregados completos, {n_derog} derogados"
+                      + (f"; entra en vigor el {en_vigor}" if en_vigor else ""))
+    datos["ley"]["estructura"] = construir_estructura(datos["unidades"])
+    return avisos
+
+
+# ---------------------------------------------------------------------------
 # Verificación cruzada contra el PDF oficial (fuente independiente del .doc)
 # ---------------------------------------------------------------------------
 def _norm_cotejo(s: str) -> str:
@@ -708,6 +866,71 @@ def verificar_pdf(siglas: str, datos: dict) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Versiones: una "foto" del texto por versión y, para el sitio, solo lo que cambió
+# ---------------------------------------------------------------------------
+def guardar_version(siglas: str, clave: str, etiqueta: str, fuente: str, unidades: list[dict]) -> None:
+    """Foto completa del texto (artículos/reglas/glosario) de una versión. 'clave' = fecha AAAA-MM-DD."""
+    def sin_tablas(u):
+        # texto sin las tablas que el PDF desarma (el renglón de referencias no entra en la comparación)
+        quitar = set(u.get("tablas_pdf", []))
+        texto = "\n".join(p for i, p in enumerate(u["texto"].split("\n")) if i not in quitar)
+        return texto
+    textos = {u["id"]: sin_tablas(u) for u in unidades
+              if u["unidad"] in ("articulo", "regla", "glosario") and not u.get("nueva_en")}
+    destino = HISTORICO / siglas / f"{clave}.json"
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    previo = json.loads(destino.read_text(encoding="utf-8")) if destino.exists() else {}
+    titulos = {u["id"]: u["titulo_regla"] for u in unidades if u.get("titulo_regla") and u["unidad"] == "regla"}
+    destino.write_text(json.dumps({"version": clave, "etiqueta": etiqueta, "fuente": fuente,
+                                   "capturado": previo.get("capturado", date.today().isoformat()),
+                                   "textos": textos, "titulos": titulos}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+
+def _comparable(s: str) -> str:
+    """Texto para decidir si cambió: sin ningún espacio. Un cambio real siempre toca letras o números;
+    así no cuentan los cortes de renglón distintos ("1o. -A" contra "1o.-A", direcciones web partidas)."""
+    return re.sub(r"\s+", "", s or "")
+
+
+def generar_versiones(siglas: str) -> str | None:
+    """web/data/versiones/<SIGLAS>.json: lista de versiones y, de cada versión anterior, solo los textos que
+    difieren de la versión actual (null = la unidad no existía en esa versión)."""
+    carpeta = HISTORICO / siglas
+    fotos = sorted(carpeta.glob("*.json")) if carpeta.exists() else []
+    if not fotos:
+        return None
+    versiones = [json.loads(f.read_text(encoding="utf-8")) for f in fotos]
+    actual = versiones[-1]
+    salida = {"actual": actual["version"], "versiones": [], "cambios": {}}
+    for v in versiones:
+        salida["versiones"].append({"clave": v["version"], "etiqueta": v["etiqueta"], "fuente": v["fuente"]})
+        if v is actual:
+            continue
+        cambios = {}
+        for uid, texto in actual["textos"].items():
+            viejo = v["textos"].get(uid)
+            if viejo is None:
+                cambios[uid] = None
+            elif _comparable(viejo) != _comparable(texto):
+                cambios[uid] = viejo
+        for uid, viejo in v["textos"].items():       # unidades que ya no existen en la versión actual
+            if uid not in actual["textos"]:
+                cambios[uid] = viejo
+        salida["cambios"][v["version"]] = cambios
+    VERSIONES.mkdir(parents=True, exist_ok=True)
+    (VERSIONES / f"{siglas}.json").write_text(json.dumps(salida, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    resumen = ", ".join(f"{k}: {len(c)} cambiadas" for k, c in salida["cambios"].items())
+    return f"{len(versiones)} versión(es) guardada(s)" + (f" · respecto a la actual → {resumen}" if resumen else "")
+
+
+def generar_versiones_todas() -> None:
+    print("\n=== Versiones guardadas ===")
+    for s in list(NORMAS) + EXTRAS:
+        if (r := generar_versiones(s)):
+            print(f"  {s:8} {r}")
+
+
+# ---------------------------------------------------------------------------
 def actualizar_catalogo() -> None:
     catalogo = []
     for siglas in list(NORMAS) + EXTRAS:
@@ -719,7 +942,9 @@ def actualizar_catalogo() -> None:
             numeros = {u["id"][len(siglas) + 1:]: (u["numero"] if u["unidad"] != "transitorio"
                                                    else f"Transitorios {u.get('fecha_publicacion') or ''}".strip())
                        for u in datos["unidades"]}
-            catalogo.append({k: v for k, v in ley.items() if k != "estructura"} | {"archivo": f.name, "numeros": numeros})
+            fotos = sorted((HISTORICO / siglas).glob("*.json")) if (HISTORICO / siglas).exists() else []
+            catalogo.append({k: v for k, v in ley.items() if k != "estructura"} |
+                            {"archivo": f.name, "numeros": numeros, "num_versiones": len(fotos)})
     (SALIDA / "catalogo.json").write_text(json.dumps(catalogo, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
@@ -794,6 +1019,12 @@ def main() -> None:
                         reporte.append(f"⚠ imagen {c['n']} no quedó dentro de {c['unidad']}")
         if args.pdf:
             reporte += verificar_pdf(siglas, datos)
+        # Foto de esta versión del texto (para comparar cuando llegue la siguiente)
+        version = datos["ley"].get("ultima_reforma") or datos["ley"].get("publicacion")
+        guardar_version(siglas, version, f"Texto con reformas hasta el DOF {version[8:]}-{version[5:7]}-{version[:4]}"
+                        if datos["ley"].get("ultima_reforma") else f"Texto original (DOF {version})", datos["ley"]["fuente"], datos["unidades"])
+        # Después de validar el texto compilado: reformas posteriores aún no integradas
+        reporte += reformas_pendientes(siglas, datos, args.descargar)
         for u in datos["unidades"]:
             u.pop("_linea", None)
         (SALIDA / f"{siglas}.json").write_text(json.dumps(datos, ensure_ascii=False, separators=(",", ":")),
@@ -804,6 +1035,7 @@ def main() -> None:
             print(f"  {linea}")
         hubo_avisos |= any(l.startswith("⚠") for l in reporte)
 
+    generar_versiones_todas()
     actualizar_catalogo()
     enlazar_todas()
     print(f"\nListo → {SALIDA.relative_to(RAIZ)}/  (reportes en {REPORTES.relative_to(RAIZ)}/)")

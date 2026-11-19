@@ -1,4 +1,4 @@
-Reporte de validación — LIF2026 — 2026-11-18
+Reporte de validación — LIF2026 — 2026-11-19
 
 34 artículos + 1 bloques de transitorios/decretos
 ✓ tablas reconstruidas: 4 de 4
@@ -11,4 +11,4 @@ Reporte de validación — LIF2026 — 2026-11-18
 ✓ sin residuos de códigos de Word
   revisar a mano (> 5× la mediana de 1,682 car.): 1o (17,572 car.), 13 (12,074 car.), 15 (10,082 car.), 20 (20,087 car.), 25 (19,595 car.)
   publicación: 2025-11-07 · última reforma: None · artículos con fecha de reforma: 0
-✓ cotejo con PDF oficial: los 34 artículos aparecen palabra por palabra en el PDF
+  (sin página de historial en LeyesBiblio; no se revisan reformas pendientes)

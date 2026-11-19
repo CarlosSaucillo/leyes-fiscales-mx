@@ -1,4 +1,4 @@
-Reporte de validación — CFF — 2026-11-18
+Reporte de validación — CFF — 2026-11-19
 
 421 artículos + 42 bloques de transitorios/decretos
 ✓ tablas reconstruidas: 43 de 43
@@ -20,4 +20,4 @@ Reporte de validación — CFF — 2026-11-18
   división sin nombre en el texto oficial (línea 1791): CAPITULO I
   división sin nombre en el texto oficial (línea 5866): CAPÍTULO ÚNICO
   publicación: 1981-12-31 · última reforma: 2026-04-09 · artículos con fecha de reforma: 121
-✓ cotejo con PDF oficial: los 421 artículos aparecen palabra por palabra en el PDF
+✓ sin reformas publicadas pendientes de integrar

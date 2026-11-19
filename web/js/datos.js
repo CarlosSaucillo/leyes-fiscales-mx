@@ -59,6 +59,13 @@ export async function cargarTodas() {
 
 export function leyYaCargada(siglas) { return leyes.has(siglas); }
 
+/** Versiones guardadas de una ley (solo los textos que difieren de la versión actual). null si no hay. */
+const versiones = new Map();
+export function cargarVersiones(siglas) {
+  if (!versiones.has(siglas)) versiones.set(siglas, leerJSON(`data/versiones/${siglas}.json`).catch(() => null));
+  return versiones.get(siglas);
+}
+
 /** Correlaciones manuales "de la oficina" (archivo publicado con el sitio). Si no existe, lista vacía. */
 let correlacionesPromesa = null;
 export function cargarCorrelacionesOficiales() {

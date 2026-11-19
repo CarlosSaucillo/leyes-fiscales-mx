@@ -509,3 +509,36 @@ a.tarjeta:hover { border-color: var(--acento); }
 .aviso-cambio .ayuda, .aviso-compilado .ayuda { color: inherit; opacity: .8; }
 .aviso-compilado ul { margin: 6px 0; padding-left: 20px; }
 .texto-aviso { color: #c2410c; }
+.aviso-compilado.con-pendientes { border-color: #f0b37e; background: #fff7ed; color: #3b2a1a; }
+[data-tema="oscuro"] .aviso-compilado.con-pendientes { background: #2a1f14; border-color: #7a4a1e; color: #f3dfc8; }
+
+/* ---------- Versiones, reformas y novedades (fase 5) ---------- */
+.texto-ley.diff p { margin: 0 0 .8em; }
+.texto-ley.diff del { background: #fde2e1; color: #8a1c1c; text-decoration: line-through; text-decoration-color: #c0392b; }
+.texto-ley.diff ins { background: #dcf5e3; color: #14532d; text-decoration: underline; text-decoration-color: #2f8f55; }
+[data-tema="oscuro"] .texto-ley.diff del { background: #4a1f1f; color: #ffb4ad; }
+[data-tema="oscuro"] .texto-ley.diff ins { background: #173a24; color: #b6f0c8; }
+.texto-ley.diff .d-igual { color: var(--texto-tenue); }
+.texto-ley.diff .d-omitido { font-family: var(--fuente-ui); font-size: .8rem; color: var(--texto-tenue); text-align: center; }
+.resumen-diff { font-size: .9rem; margin: 14px 0 8px; }
+.tabla-pdf { margin: 0 0 1em; border: 1px dashed #f0b37e; border-radius: 8px; padding: 8px 12px; font-size: .9rem; }
+.tabla-pdf summary { cursor: pointer; font-family: var(--fuente-ui); }
+.tabla-pdf .texto-extraido { color: var(--texto-tenue); font-size: .85rem; }
+.chip.activo { background: var(--acento); border-color: var(--acento); color: var(--superficie); font-weight: 600; }
+a.chip { text-decoration: none; }
+.grupo-reforma { margin-bottom: 18px; }
+.grupo-reforma h2 { margin: 22px 0 8px; font-size: 1.05rem; }
+.grupo-reforma.pendiente h2 { color: #c2410c; }
+.grupo-reforma .lista-art { display: flex; flex-wrap: wrap; gap: 6px; }
+.grupo-reforma .lista-art a, .grupo-reforma .lista-reglas a {
+  padding: 2px 9px; border-radius: 6px; font-size: .85rem; text-decoration: none;
+  background: var(--superficie); border: 1px solid var(--borde); color: var(--texto);
+}
+.grupo-reforma .lista-reglas { display: flex; flex-direction: column; gap: 2px; }
+.grupo-reforma .lista-reglas a { border: 0; background: none; color: var(--texto-suave); }
+.tabla-novedades { width: 100%; border-collapse: collapse; font-size: .9rem; margin-top: 12px; }
+.tabla-novedades th, .tabla-novedades td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--borde); }
+.tabla-novedades th { color: var(--texto-suave); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+.tabla-novedades tr.pendiente td { background: #fff7ed; }
+[data-tema="oscuro"] .tabla-novedades tr.pendiente td { background: #2a1f14; }
+.accesos { flex-wrap: wrap; }

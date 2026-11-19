@@ -1,4 +1,4 @@
-Reporte de validación — RLIVA — 2026-11-18
+Reporte de validación — RLIVA — 2026-11-19
 
 84 artículos + 2 bloques de transitorios/decretos
 ✓ tablas reconstruidas: 1 de 1
@@ -13,4 +13,4 @@ Reporte de validación — RLIVA — 2026-11-18
 ✓ sin residuos de códigos de Word
   revisar a mano (> 5× la mediana de 378 car.): 20 (2,736 car.), 74 (2,535 car.)
   publicación: 2006-12-04 · última reforma: 2014-09-25 · artículos con fecha de reforma: 33
-✓ cotejo con PDF oficial: los 84 artículos aparecen palabra por palabra en el PDF
+  (sin página de historial en LeyesBiblio; no se revisan reformas pendientes)

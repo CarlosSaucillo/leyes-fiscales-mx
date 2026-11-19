@@ -1,4 +1,4 @@
-Reporte de validación — RCFF — 2026-11-18
+Reporte de validación — RCFF — 2026-11-19
 
 113 artículos + 1 bloques de transitorios/decretos
 ✓ tablas reconstruidas: 1 de 1
@@ -12,4 +12,4 @@ Reporte de validación — RCFF — 2026-11-18
 ✓ sin residuos de códigos de Word
   revisar a mano (> 5× la mediana de 707 car.): 30 (9,017 car.), 33 (9,081 car.), 55 (3,884 car.), 60 (4,617 car.)
   publicación: 2014-04-02 · última reforma: None · artículos con fecha de reforma: 0
-✓ cotejo con PDF oficial: los 113 artículos aparecen palabra por palabra en el PDF
+  (sin página de historial en LeyesBiblio; no se revisan reformas pendientes)

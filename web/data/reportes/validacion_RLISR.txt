@@ -1,4 +1,4 @@
-Reporte de validación — RLISR — 2026-11-18
+Reporte de validación — RLISR — 2026-11-19
 
 313 artículos + 2 bloques de transitorios/decretos
 ✓ tablas reconstruidas: 1 de 1
@@ -12,4 +12,4 @@ Reporte de validación — RLISR — 2026-11-18
 ✓ sin residuos de códigos de Word
   revisar a mano (> 5× la mediana de 756 car.): 138 (4,728 car.), 165 (3,909 car.), 215 (8,149 car.), 299 (5,450 car.), 302 (4,808 car.), 311 (4,204 car.)
   publicación: 2015-10-08 · última reforma: 2016-05-06 · artículos con fecha de reforma: 2
-✓ cotejo con PDF oficial: los 313 artículos aparecen palabra por palabra en el PDF
+  (sin página de historial en LeyesBiblio; no se revisan reformas pendientes)

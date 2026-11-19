@@ -11,8 +11,9 @@
 
 import {
   cargarCatalogo, cargarLey, cargarTodas, infoLey, fecha, claveUrl,
-  tituloUnidad, tituloCorto, etiquetaDivision, cargarCorrelacionesOficiales, leyDeId,
+  tituloUnidad, tituloCorto, etiquetaDivision, cargarCorrelacionesOficiales, leyDeId, cargarVersiones,
 } from "./datos.js";
+import { compararTextos } from "./diff.js";
 import { buscar, fragmento, resaltar, escapar, normalizar } from "./buscador.js";
 import * as almacen from "./almacen.js";
 import { iniciarPestanas, actualizarActiva } from "./pestanas.js";
@@ -66,6 +67,7 @@ async function enrutar() {
     else if (partes[0] === "buscar") titulo = await vistaBusqueda(params);
     else if (partes[0] === "historial") titulo = vistaHistorial();
     else if (partes[0] === "notas") titulo = await vistaNotas();
+    else if (partes[0] === "reformas") titulo = await vistaReformas(partes[1], params.get("anio"));
     else if (partes.length === 1) titulo = await vistaLey(partes[0]);
     else titulo = await vistaUnidad(partes[0], partes.slice(1).join("/"), params.get("q"));
   } catch (e) {
@@ -216,7 +218,8 @@ function tarjetaLey(l) {
         <dt>Publicación</dt><dd>DOF ${fecha(l.publicacion)}</dd>
         <dt>Contenido</dt><dd>${l.num_articulos} ${l.unidad_nombre || "artículos"} · ${l.num_transitorios} ${l.num_transitorios === 1 ? "bloque" : "bloques"} de transitorios</dd>
         ${l.compilado ? `<dt>Compilado SAT</dt><dd>integra hasta la ${escapar(l.compilado.integra_hasta)}</dd>` : ""}
-        ${l.pendientes?.length ? `<dt>Posteriores</dt><dd class="texto-aviso">${l.pendientes.length} documento(s) aún no integrados</dd>` : ""}
+        ${l.pendientes?.length ? `<dt>Pendiente</dt><dd class="texto-aviso">${l.tipo === "resolucion" ? `${l.pendientes.length} documento(s) aún no integrados`
+          : `reforma DOF ${fecha(l.pendientes.at(-1).fecha)} aún no integrada${l.pendientes.at(-1).en_vigor ? ` (vigor: ${fecha(l.pendientes.at(-1).en_vigor)})` : ""}`}</dd>` : ""}
       </dl>
     </a>`;
 }
@@ -287,17 +290,22 @@ function nodoIndice(ley, nodo) {
 }
 
 /** Bloque informativo de la RMF: compilado vigente y documentos posteriores aún no integrados. */
-function infoResolucion(ley) {
-  if (!ley.compilado) return "";
+function infoPendientes(ley) {
   const pend = ley.pendientes || [];
+  if (!ley.compilado && !pend.length) return "";
+  const esRes = ley.tipo === "resolucion";
   return `
-    <div class="aviso-compilado">
-      <p><strong>Texto vigente:</strong> ${escapar(ley.compilado.titulo)} del SAT (integra hasta la ${escapar(ley.compilado.integra_hasta)}).
-        <a href="${escapar(ley.compilado.url)}" target="_blank" rel="noopener">PDF</a></p>
-      ${pend.length ? `<p><strong>Posteriores al compilado</strong> (se muestran como aviso en cada regla afectada; el texto de la regla no se modifica):</p>
+    <div class="aviso-compilado${pend.length && !esRes ? " con-pendientes" : ""}">
+      ${esRes ? `<p><strong>Texto vigente:</strong> ${escapar(ley.compilado.titulo)} del SAT (integra hasta la ${escapar(ley.compilado.integra_hasta)}).
+        <a href="${escapar(ley.compilado.url)}" target="_blank" rel="noopener">PDF</a></p>`
+        : `<p><strong>Reformas publicadas que aún no están en el texto de la Cámara de Diputados.</strong>
+           El texto que ves es el vigente hasta la reforma del DOF ${escapar(fecha(ley.ultima_reforma))};
+           los artículos afectados muestran un aviso con el extracto oficial del decreto.</p>`}
+      ${pend.length ? `${esRes ? "<p><strong>Posteriores al compilado</strong> (se muestran como aviso en cada regla afectada; el texto de la regla no se modifica):</p>" : ""}
         <ul>${pend.map((p) => `<li><a href="${escapar(p.url)}" target="_blank" rel="noopener">${escapar(p.titulo)}</a>
-          ${p.fecha ? `· ${escapar(fecha(p.fecha))}` : ""} · ${p.tipo === "modificacion" ? "publicada en el DOF" : "<em>versión anticipada, aún sin publicar en el DOF</em>"}</li>`).join("")}</ul>` : ""}
-      <p class="ayuda">El SAT aclara que el compilado es de consulta: para sustentar actos o resoluciones se usa la publicación en el DOF.</p>
+          ${p.fecha ? `· ${escapar(fecha(p.fecha))}` : ""} · ${p.tipo === "anticipada" ? "<em>versión anticipada, aún sin publicar en el DOF</em>" : "publicada en el DOF"}
+          ${p.en_vigor ? ` · entra en vigor el <strong>${escapar(fecha(p.en_vigor))}</strong>` : ""}</li>`).join("")}</ul>` : ""}
+      ${esRes ? `<p class="ayuda">El SAT aclara que el compilado es de consulta: para sustentar actos o resoluciones se usa la publicación en el DOF.</p>` : ""}
     </div>`;
 }
 
@@ -316,7 +324,8 @@ async function vistaLey(siglas) {
       <span class="insignia">${ley.num_articulos} ${ley.unidad_nombre || "artículos"}</span>
       <a class="insignia" href="${escapar(ley.fuente)}" target="_blank" rel="noopener">${ICONO.doc} Texto oficial (PDF)</a>
     </div>
-    ${infoResolucion(ley)}
+    ${infoPendientes(ley)}
+    <p><a href="#/reformas/${escapar(ley.siglas)}">Ver ${ley.tipo === "resolucion" ? "modificaciones" : "reformas"} por fecha →</a></p>
     <h2>Índice</h2>
     <div class="indice">${ley.estructura.map((n) => nodoIndice(ley, n)).join("")}</div>
     ${AVISO_LEGAL}`;
@@ -369,7 +378,8 @@ function parrafoHtml(l, enlaces, marcar) {
   return html + marcar(l.slice(pos));
 }
 
-function textoHtml(texto, terminos, enlaces = []) {
+function textoHtml(texto, terminos, enlaces = [], opciones = {}) {
+  const tablas = new Set(opciones.tablas || []);
   const marcar = (s) => (terminos.length ? resaltar(s, terminos) : escapar(s));
   const lineas = texto.split("\n").map((l) => l.trim()).filter(Boolean);
   // enlaces: [renglón, inicio, fin, "SIGLAS/clave"] → agrupados por renglón
@@ -406,29 +416,90 @@ function textoHtml(texto, terminos, enlaces = []) {
         <figcaption>${escapar(img[2])} · imagen tomada del documento oficial</figcaption></figure>`;
       continue;
     }
+    if (tablas.has(i)) {
+      html += `<details class="tabla-pdf"><summary>⚠ Tabla del documento oficial: el PDF no permite extraerla con fidelidad.
+        ${opciones.pdf ? `<a href="${escapar(opciones.pdf)}" target="_blank" rel="noopener">Consúltala en el PDF</a>` : "Consúltala en el PDF oficial"}
+        (ver texto extraído)</summary><p class="texto-extraido">${marcar(l)}</p></details>`;
+      continue;
+    }
     const c = claseParrafo(l);
     html += `<p${c ? ` class="${c}"` : ""}>${parrafoHtml(l, porRenglon.get(i), marcar)}</p>`;
   }
   return html;
 }
 
+// ---------- Versiones guardadas y comparación ----------
+const textoComparable = (u) => {
+  const quitar = new Set(u.tablas_pdf || []);
+  return u.texto.split("\n").map((l) => l.trim()).filter(Boolean).filter((_, i) => !quitar.has(i)).join("\n");
+};
+
+async function pintarVersiones(u, ley) {
+  const zona = $("#zona-versiones");
+  if (!zona) return;
+  if (u.nueva_en || !["articulo", "regla", "glosario"].includes(u.unidad)) {
+    zona.closest(".panel").hidden = true;
+    return;
+  }
+  const v = await cargarVersiones(ley.siglas);
+  if (!v || v.versiones.length < 2) {
+    zona.innerHTML = `<p class="vacio">Por ahora hay una sola versión guardada de esta ${ley.tipo === "resolucion" ? "resolución" : "ley"}
+      (${escapar(v?.versiones[0]?.etiqueta || "texto actual")}). Cuando se publique el texto actualizado, aquí podrás ver qué cambió.</p>`;
+    return;
+  }
+  const anteriores = v.versiones.filter((x) => x.clave !== v.actual);
+  const conCambio = anteriores.filter((x) => u.id in (v.cambios[x.clave] || {}));
+  const desde = anteriores[0];
+  if (!conCambio.length) {
+    zona.innerHTML = `<p class="vacio">Sin cambios en las ${v.versiones.length} versiones guardadas (desde: ${escapar(desde.etiqueta)}).</p>`;
+    return;
+  }
+  zona.innerHTML = `
+    <p class="ayuda">Versiones guardadas en las que este texto era distinto. Elige una para ver qué cambió hasta la versión actual
+      (<del>tachado</del> = se quitó, <ins>subrayado</ins> = se agregó).</p>
+    <div class="botonera">${conCambio.map((x) => `<button type="button" class="boton" data-version="${escapar(x.clave)}">${escapar(x.etiqueta)}</button>`).join("")}</div>
+    <div id="resultado-diff"></div>`;
+  zona.querySelectorAll("[data-version]").forEach((b) => b.addEventListener("click", () => {
+    zona.querySelectorAll("[data-version]").forEach((x) => x.classList.toggle("primario", x === b));
+    const viejo = v.cambios[b.dataset.version][u.id];
+    const destino = $("#resultado-diff", zona);
+    if (viejo === null) {
+      destino.innerHTML = `<p class="vacio">En esa versión este ${u.unidad === "regla" ? "regla" : "artículo"} no existía.</p>`;
+      return;
+    }
+    const { html, cambios } = compararTextos(viejo, textoComparable(u));
+    const actual = v.versiones.find((x) => x.clave === v.actual);
+    destino.innerHTML = `<p class="resumen-diff"><strong>${escapar(b.textContent)}</strong> → <strong>${escapar(actual.etiqueta)}</strong>
+      · ${cambios} cambio${cambios === 1 ? "" : "s"}${u.tablas_pdf ? " · (las tablas no se comparan)" : ""}</p>
+      <div class="texto-ley diff">${html}</div>`;
+  }));
+}
+
 // ---------- Avisos de cambios posteriores al compilado (RMF) ----------
-function avisosPendientes(u, terminos) {
+function avisosPendientes(u, ley, terminos) {
+  const esRes = ley.tipo === "resolucion";
+  const textoBase = esRes ? "el del compilado del SAT" : "el publicado por la Cámara de Diputados";
+  const vigor = (x) => (x.en_vigor ? ` Entra en vigor el <strong>${escapar(fecha(x.en_vigor))}</strong>.` : "");
   const bloques = [];
   if (u.nueva_en) {
     const n = u.nueva_en;
+    const que = u.unidad === "transitorio" ? "Disposiciones transitorias y de vigencia de un decreto"
+      : esRes ? "Regla nueva adicionada por la" : "Artículo nuevo adicionado por el";
     bloques.push(`<div class="aviso-cambio nueva">
-      <p><strong>Regla nueva</strong> adicionada por la <a href="${escapar(n.url)}" target="_blank" rel="noopener">${escapar(n.documento)}</a>
-      ${n.fecha ? `(${escapar(fecha(n.fecha))})` : ""}: ${escapar(n.estado)}. El texto de abajo se tomó de ese documento oficial.</p></div>`);
+      <p><strong>${que}</strong> ${u.unidad === "transitorio" ? "—" : ""}
+      <a href="${escapar(n.url)}" target="_blank" rel="noopener">${escapar(n.documento)}</a>
+      ${n.fecha ? `(${escapar(fecha(n.fecha))})` : ""}: ${escapar(n.estado)}.${vigor(n)}
+      El texto se tomó de ese documento oficial.</p></div>`);
   }
   const pendientes = u.pendientes || [];
   pendientes.forEach((p, i) => {
     const abierto = i === pendientes.length - 1 ? " open" : "";   // solo el más reciente, abierto
+    const accion = p.derogada ? (esRes ? "Derogada por la" : "Derogado por el") : (esRes ? "Modificada por la" : "Reformado por el");
     bloques.push(`<details class="aviso-cambio"${abierto}>
-      <summary><strong>${p.derogada ? "Derogada por la" : "Modificada por la"} ${escapar(p.documento)}</strong>
+      <summary><strong>${accion} ${escapar(p.documento)}</strong>
         ${p.fecha ? `· ${escapar(fecha(p.fecha))}` : ""} — ${escapar(p.estado)}</summary>
-      <p class="ayuda">El texto principal de abajo es el del compilado del SAT y <strong>todavía no incluye este cambio</strong>.
-        Extracto oficial de la modificación, tal como se publicó («…» = sin cambios):</p>
+      <p class="ayuda">El texto principal de abajo es ${textoBase} y <strong>todavía no incluye este cambio</strong>.${vigor(p)}
+        Extracto oficial, tal como se publicó («…» = sin cambios):</p>
       ${p.titulo_regla ? `<p class="epigrafe">${escapar(p.titulo_regla)}</p>` : ""}
       <div class="texto-ley extracto">${textoHtml(p.texto, terminos)}</div>
       <p><a href="${escapar(p.url)}" target="_blank" rel="noopener">${ICONO.doc} Ver el documento oficial (PDF)</a></p>
@@ -630,6 +701,7 @@ async function vistaUnidad(siglas, clave, consulta) {
   }
 
   document.title = `${tituloUnidad(u)} ${ley.siglas}`;
+  const pdfPagina = u.pagina ? `${u.fuente}#page=${u.pagina}` : u.fuente;
   const terminos = consulta ? consulta.split(/\s+/).map(normalizar).filter((t) => t.length > 2) : [];
   const migas = u.ruta.map((r) => `<span class="sep">›</span><span>${escapar(etiquetaDivision(r))}</span>`).join("");
   const anterior = ley.unidades[u.indice - 1];
@@ -647,7 +719,7 @@ async function vistaUnidad(siglas, clave, consulta) {
   } else if (u.ultima_reforma) {
     insignias = `<span class="insignia reforma">${ICONO.reloj} Última ${ley.tipo === "resolucion" ? "modificación" : "reforma"}: DOF ${fecha(u.ultima_reforma)}</span>`;
   } else {
-    insignias = u.nueva_en ? `<span class="insignia reforma">${ICONO.reloj} Regla nueva (${escapar(u.nueva_en.documento)})</span>`
+    insignias = u.nueva_en ? `<span class="insignia reforma">${ICONO.reloj} ${ley.tipo === "resolucion" ? "Regla nueva" : "Artículo nuevo"} (${escapar(u.nueva_en.documento)})</span>`
       : `<span class="insignia">${ICONO.reloj} Sin ${ley.tipo === "resolucion" ? "modificaciones" : "reformas"}: texto original (DOF ${fecha(ley.publicacion)})</span>`;
   }
 
@@ -662,7 +734,7 @@ async function vistaUnidad(siglas, clave, consulta) {
         ${u.titulo_regla && u.unidad === "regla" ? `<p class="epigrafe">${escapar(u.titulo_regla)}</p>` : ""}
         <div class="insignias">
           ${insignias}
-          <a class="insignia" href="${escapar(u.fuente)}" target="_blank" rel="noopener">${ICONO.doc} Texto oficial</a>
+          <a class="insignia" href="${escapar(pdfPagina)}" target="_blank" rel="noopener">${ICONO.doc} Texto oficial${u.pagina ? ` (pág. ${u.pagina})` : ""}</a>
         </div>
         <div class="acciones" role="toolbar" aria-label="Acciones del artículo">
           <button type="button" class="accion" data-accion="copiar" title="Copia el texto (o solo lo que tengas seleccionado) con su cita">${ICONO.copiar} Copiar con cita</button>
@@ -671,14 +743,21 @@ async function vistaUnidad(siglas, clave, consulta) {
           <button type="button" class="accion" data-accion="vincular" title="Relaciona este artículo con otro">${ICONO.vincular} Sugerir correlación</button>
         </div>
       </header>
-      ${avisosPendientes(u, terminos)}
-      <div class="texto-ley" id="texto-ley">${textoHtml(u.texto, terminos, u.enlaces)}</div>
+      ${avisosPendientes(u, ley, terminos)}
+      ${u.formula_pdf ? `<div class="aviso-cambio"><p><strong>Esta regla incluye fórmulas</strong> que el PDF del SAT presenta como imagen
+        y no se pueden mostrar aquí. <a href="${escapar(pdfPagina)}" target="_blank" rel="noopener">Consúltalas en el PDF${u.pagina ? ` (página ${u.pagina})` : ""}</a>.</p></div>` : ""}
+      <div class="texto-ley" id="texto-ley">${textoHtml(u.texto, terminos, u.enlaces, { tablas: u.tablas_pdf, pdf: pdfPagina })}</div>
       ${u.referencias_sat ? `<p class="referencias-sat"><span>Referencias:</span> ${parrafoHtml(u.referencias_sat, (u.enlaces_refs || []).map(([i, f, d]) => [0, i, f, d]), escapar)}</p>` : ""}
       ${u.reformas.length > 1 ? `
         <details class="historial-reformas">
           <summary>Reformas a este artículo (${u.reformas.length})</summary>
           <p>${u.reformas.map((f) => "DOF " + fecha(f)).join(" · ")}</p>
         </details>` : ""}
+
+      <section class="panel" aria-labelledby="titulo-versiones">
+        <h2 id="titulo-versiones">Versiones</h2>
+        <div id="zona-versiones"><p class="cargando">Cargando…</p></div>
+      </section>
 
       <section class="panel" aria-labelledby="titulo-correlaciones">
         <h2 id="titulo-correlaciones">Correlaciones</h2>
@@ -716,6 +795,7 @@ async function vistaUnidad(siglas, clave, consulta) {
   });
   conectarNotas(u, ley);
   pintarCorrelaciones(u);
+  pintarVersiones(u, ley);
 
   marcarEnArbol(ley.siglas, u.id);
   const primera = terminos.length && $("mark", main);
@@ -726,6 +806,101 @@ async function vistaUnidad(siglas, clave, consulta) {
     irArriba();
   }
   return citaCorta(u, ley);
+}
+
+// ==========================================================================
+// Reformas: línea de tiempo por ley y novedades de todas las leyes
+// ==========================================================================
+/** Agrupa las unidades de una ley por fecha de reforma: [{fecha, unidades, pendiente, documento}] (más reciente primero). */
+function reformasPorFecha(ley) {
+  const grupos = new Map();
+  const agregar = (fecha, u, extra = {}) => {
+    if (!fecha) return;
+    if (!grupos.has(fecha)) grupos.set(fecha, { fecha, unidades: [], ...extra });
+    const g = grupos.get(fecha);
+    if (!g.unidades.includes(u)) g.unidades.push(u);
+  };
+  for (const u of ley.unidades) {
+    if (u.unidad !== "articulo" && u.unidad !== "regla") continue;
+    if (u.nueva_en) agregar(u.nueva_en.fecha, u, { pendiente: true, documento: u.nueva_en.documento, en_vigor: u.nueva_en.en_vigor });
+    else u.reformas.forEach((f) => agregar(f, u));
+    (u.pendientes || []).forEach((p) => agregar(p.fecha, u, { pendiente: true, documento: p.documento, en_vigor: p.en_vigor }));
+  }
+  return [...grupos.values()].sort((a, b) => b.fecha.localeCompare(a.fecha));
+}
+
+/** Las versiones anticipadas se publican en el portal del SAT, no en el DOF. */
+const origenFecha = (g) => (/versión anticipada/i.test(g.documento || "") ? "Portal SAT" : "DOF");
+
+function chipUnidad(ley, u) {
+  const con = u.unidad === "regla" && u.titulo_regla;
+  return `<a class="${con ? "con-titulo" : ""}" href="#/${escapar(ley.siglas)}/${escapar(claveUrl(u))}"
+    title="${escapar(u.titulo_regla || tituloUnidad(u))}">${con ? `<b>${escapar(u.numero)}</b> ${escapar(u.titulo_regla)}` : escapar(u.numero)}</a>`;
+}
+
+async function vistaReformas(siglas, anio) {
+  if (!siglas) return vistaNovedades();
+  const info = await infoLey(siglas);
+  if (!info) return noCargada(siglas);
+  const ley = await cargarLey(info.siglas);
+  const grupos = reformasPorFecha(ley);
+  const anios = [...new Set(grupos.map((g) => g.fecha.slice(0, 4)))];
+  const visibles = anio ? grupos.filter((g) => g.fecha.startsWith(anio)) : grupos;
+  const unidadN = ley.tipo === "resolucion" ? ["regla", "reglas"] : ["artículo", "artículos"];
+  document.title = `Reformas — ${ley.siglas}`;
+  main.innerHTML = `
+    <nav class="migas"><a href="#/">Inicio</a><span class="sep">›</span><a href="#/${escapar(ley.siglas)}">${escapar(ley.siglas)}</a><span class="sep">›</span><span>Reformas</span></nav>
+    <h1>Reformas por fecha · ${escapar(ley.siglas)}</h1>
+    <p class="subtitulo">${escapar(ley.nombre)}. Cada fecha muestra los ${unidadN[1]} que se ${ley.tipo === "resolucion" ? "modificaron" : "reformaron"} ese día,
+      según las notas oficiales del texto${ley.tipo === "resolucion" ? " compilado del SAT" : ""}.</p>
+    <div class="filtros" role="group" aria-label="Filtrar por año">
+      <a class="chip ${!anio ? "activo" : ""}" href="#/reformas/${escapar(ley.siglas)}">Todas</a>
+      ${anios.map((a) => `<a class="chip ${a === anio ? "activo" : ""}" href="#/reformas/${escapar(ley.siglas)}?anio=${a}">${a}</a>`).join("")}
+    </div>
+    ${visibles.length ? visibles.map((g) => `
+      <section class="grupo-reforma${g.pendiente ? " pendiente" : ""}">
+        <h2>${origenFecha(g)} ${escapar(fecha(g.fecha))} <span class="contador">${g.unidades.length} ${g.unidades.length === 1 ? unidadN[0] : unidadN[1]}</span></h2>
+        ${g.pendiente ? `<p class="texto-aviso">${escapar(g.documento)}: publicado, aún no integrado al texto${g.en_vigor ? ` · entra en vigor el ${escapar(fecha(g.en_vigor))}` : ""}</p>` : ""}
+        <div class="${ley.tipo === "resolucion" ? "lista-reglas" : "lista-art"}">${g.unidades.map((u) => chipUnidad(ley, u)).join("")}</div>
+      </section>`).join("") : `<p class="vacio">Sin reformas registradas${anio ? ` en ${escapar(anio)}` : ""}.</p>`}
+    ${AVISO_LEGAL}`;
+  irArriba();
+  return `Reformas ${ley.siglas}`;
+}
+
+async function vistaNovedades() {
+  document.title = "Novedades";
+  main.innerHTML = `<h1>Novedades</h1><p class="cargando">Revisando todas las leyes…</p>`;
+  const leyes = await cargarTodas();
+  const hoy = new Date();
+  const haceUnAnio = new Date(hoy.getFullYear() - 1, hoy.getMonth(), hoy.getDate()).toISOString().slice(0, 10);
+  const filas = [];
+  for (const ley of leyes) {
+    for (const g of reformasPorFecha(ley)) {
+      if (g.fecha >= haceUnAnio || g.pendiente) filas.push({ ley, ...g });
+    }
+  }
+  filas.sort((a, b) => b.fecha.localeCompare(a.fecha) || Number(Boolean(b.pendiente)) - Number(Boolean(a.pendiente)));
+  const pendientes = leyes.filter((l) => l.pendientes?.length);
+  main.innerHTML = `
+    <h1>Novedades</h1>
+    <p class="subtitulo">Reformas y modificaciones de los últimos 12 meses en todas las leyes cargadas, de la más reciente a la más antigua.</p>
+    ${pendientes.length ? `<div class="aviso-compilado con-pendientes"><p><strong>Publicado en el DOF o en el portal del SAT, aún no integrado al texto:</strong></p>
+      <ul>${pendientes.flatMap((l) => l.pendientes.map((p) => `<li><a href="#/reformas/${escapar(l.siglas)}">${escapar(l.siglas)}</a> ·
+        <a href="${escapar(p.url)}" target="_blank" rel="noopener">${escapar(p.titulo)}</a> · ${escapar(fecha(p.fecha))}
+        ${p.en_vigor ? ` · entra en vigor el <strong>${escapar(fecha(p.en_vigor))}</strong>` : ""}</li>`)).join("")}</ul></div>` : ""}
+    <table class="tabla-novedades">
+      <thead><tr><th>Fecha</th><th>Ordenamiento</th><th>Cambios</th></tr></thead>
+      <tbody>${filas.map((f) => `<tr${f.pendiente ? ' class="pendiente"' : ""}>
+        <td>${origenFecha(f)} ${escapar(fecha(f.fecha))}${f.pendiente ? '<br><small class="texto-aviso">aún no integrado</small>' : ""}</td>
+        <td><a href="#/reformas/${escapar(f.ley.siglas)}">${escapar(f.ley.siglas)}</a></td>
+        <td>${f.unidades.length} ${f.ley.tipo === "resolucion" ? (f.unidades.length === 1 ? "regla" : "reglas") : (f.unidades.length === 1 ? "artículo" : "artículos")}:
+          ${f.unidades.slice(0, 12).map((u) => `<a href="#/${escapar(f.ley.siglas)}/${escapar(claveUrl(u))}">${escapar(u.numero)}</a>`).join(", ")}${f.unidades.length > 12 ? "…" : ""}</td>
+      </tr>`).join("")}</tbody>
+    </table>
+    ${AVISO_LEGAL}`;
+  irArriba();
+  return "Novedades";
 }
 
 // ==========================================================================

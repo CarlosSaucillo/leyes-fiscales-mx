@@ -4,7 +4,7 @@
     {
       "name": "leyes-web",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8000", "-d", "web"],
+      "runtimeArgs": ["scripts/servidor.py", "8000"],
       "port": 8000
     }
   ]

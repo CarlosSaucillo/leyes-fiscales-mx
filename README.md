@@ -16,7 +16,7 @@ el texto con validez oficial es el publicado en el DOF.
 | 2 | Pestañas, historial, notas, copiar con cita, ir directo (LISR 27), correlaciones manuales | ✅ |
 | 3 | RLISR, CFF, RCFF, LIVA, RLIVA, LIF 2026 y 2027 + hipervínculos automáticos | ✅ |
 | 4 | RMF 2026: compilado del SAT + modificaciones y versiones anticipadas posteriores | ✅ |
-| 5 | Fechas de reforma por artículo y comparación de versiones | pendiente |
+| 5 | Reformas por fecha, novedades, reformas publicadas aún no integradas y comparación de versiones | ✅ |
 
 ## Usarlo en tu computadora
 
@@ -29,7 +29,7 @@ página lea archivos de datos así; por eso se usa un pequeño servidor local.)
 Equivalente en Terminal:
 
 ```bash
-python3 -m http.server 8000 -d web
+python3 scripts/servidor.py
 ```
 
 ## Funciones
@@ -61,6 +61,18 @@ python3 scripts/build_rmf.py --descargar
 El reporte `web/data/reportes/validacion_RMF2026.txt` coteja las reglas contra la RMF original publicada en el DOF:
 toda regla nueva debe estar anotada como «Adicionada» y ninguna original debe desaparecer sin explicación.
 
+## Reformas, novedades y versiones
+
+- **Reformas publicadas que la Cámara aún no integra:** el extractor revisa la página de historial de cada ley en
+  LeyesBiblio. Si hay un decreto posterior al texto vigente (p. ej. el Paquete Económico 2027, DOF 13-11-2026), cada
+  artículo afectado muestra un aviso con el extracto oficial del decreto y su fecha de entrada en vigor; los artículos
+  nuevos se agregan completos y las disposiciones transitorias del decreto quedan como bloque propio.
+- **Reformas por fecha** (`#/reformas/LISR`) y **Novedades** de todas las leyes (`#/reformas`).
+- **Versiones:** cada corrida guarda una foto completa del texto en `historico/<SIGLAS>/<fecha>.json` (se queda en el
+  repositorio; no se publica). Al sitio solo va lo que cambió (`web/data/versiones/`). Cada artículo tiene un panel
+  «Versiones» para comparar palabra por palabra. La RMF ya trae 4 versiones oficiales (original del DOF y los tres
+  compilados del SAT); las leyes empezarán a mostrar cambios cuando la Cámara publique su siguiente texto actualizado.
+
 ## Hipervínculos entre artículos
 
 `scripts/referencias.py` convierte en enlaces las referencias que **nombran el ordenamiento**:
@@ -77,6 +89,8 @@ scripts/imagenes_oficiales.json  ubicación de tarifas/fórmulas que el document
 scripts/pdf_a_texto.swift        lector de PDF (macOS) para cotejar contra el PDF oficial
 scripts/referencias.py           detector de referencias entre artículos (hipervínculos)
 scripts/build_rmf.py             extractor de la RMF (compilado del SAT + modificaciones posteriores)
+scripts/servidor.py              servidor local para probar (sin caché)
+historico/                       fotos completas de cada versión (base de la comparación)
 web/                             la página (lo que se publica)
 web/data/catalogo.json           metadatos de cada ley
 web/data/<SIGLAS>.json           una ley por archivo: metadatos, estructura y artículos
