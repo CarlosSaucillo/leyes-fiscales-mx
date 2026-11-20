@@ -3,12 +3,15 @@
 clear
 echo "=== Subir leyes fiscales a GitHub ==="
 echo ""
-echo "Cuando pida 'Password' PEGA tu token de GitHub (ghp_...)."
+echo "Solo la PRIMERA vez pedirá 'Password': PEGA tu token de GitHub (ghp_...)."
 echo "Al pegar no se ve nada: es normal. Luego presiona Enter."
+echo "La Mac lo guarda en el Llavero y las siguientes veces ya no lo pide."
 echo ""
 cd "$(dirname "$0")" || { echo "No encontré la carpeta"; read; exit 1; }
-# Se ignora la cuenta guardada en el llavero (es otra cuenta de GitHub) para que pida la de CarlosSaucillo.
-git -c credential.helper= push https://CarlosSaucillo@github.com/CarlosSaucillo/leyes-fiscales-mx.git main
+# El usuario va en la dirección para que el Llavero use la cuenta CarlosSaucillo
+# (y no la otra cuenta de GitHub guardada en esta Mac).
+git remote set-url origin https://CarlosSaucillo@github.com/CarlosSaucillo/leyes-fiscales-mx.git
+git push origin main
 if [ $? -eq 0 ]; then
   echo ""
   echo "✅ ¡Listo! Los cambios ya están en GitHub."

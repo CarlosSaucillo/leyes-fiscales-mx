@@ -9,7 +9,7 @@ Cada vez que subas cambios a GitHub, el sitio se actualiza solo en 1 o 2 minutos
 ## Paso 1 · Subir el código a GitHub
 
 1. Doble clic en `subir-leyes-a-github.command`.
-2. Pega tu token de GitHub (`ghp_…`) cuando pida *Password* y presiona Enter.
+2. Pega tu token de GitHub (`ghp_…`) cuando pida *Password* y presiona Enter. Solo se pide la primera vez: la Mac lo guarda en el Llavero.
    - Si el token ya caducó, crea uno nuevo en GitHub → Settings → Developer settings → Personal access tokens → *Tokens (classic)* → *Generate new token*, con el permiso **repo**.
 
 **Opcional (recomendado): hacer el repositorio privado.** Hoy el repositorio es público, así que cualquiera puede ver el código y los datos en GitHub, aunque el sitio tenga puerta. El texto legal es público, pero si quieren que la herramienta sea solo de la oficina:
