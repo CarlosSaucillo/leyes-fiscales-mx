@@ -1,0 +1,7 @@
+// Configuración para publicar en Cloudflare (Workers con archivos estáticos).
+// Solo publica la carpeta web/; no hay código de servidor.
+{
+  "name": "leyes-fiscales",
+  "compatibility_date": "2026-11-01",
+  "assets": { "directory": "./web" }
+}
