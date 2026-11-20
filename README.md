@@ -116,3 +116,7 @@ python3 scripts/build_data.py --solo LISR --descargar --pdf
   (huella MD5 distinta) y hay que revisar `scripts/imagenes_oficiales.json`.
 
 Requiere macOS (usa `textutil` y `swift`, que vienen con el sistema).
+
+## Publicar
+
+Ver [PUBLICAR.md](PUBLICAR.md) (Cloudflare Pages + Cloudflare Access).

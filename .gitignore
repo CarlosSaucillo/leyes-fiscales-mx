@@ -4,5 +4,3 @@ __pycache__/
 .streamlit/secrets.toml
 # Documentos fuente descargables (se regeneran con scripts/build_data.py --descargar)
 fuentes/
-# Ayudante personal para el primer push
-subir-leyes-a-github.command
