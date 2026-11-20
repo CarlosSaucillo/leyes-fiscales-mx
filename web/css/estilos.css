@@ -542,3 +542,165 @@ a.chip { text-decoration: none; }
 .tabla-novedades tr.pendiente td { background: #fff7ed; }
 [data-tema="oscuro"] .tabla-novedades tr.pendiente td { background: #2a1f14; }
 .accesos { flex-wrap: wrap; }
+
+/* ==========================================================================
+   Tema Kreston BSG (inspirado en el portal interno: lateral azul marino,
+   banda cian, botones con contorno). Para volver al tema anterior basta con
+   borrar desde aquí hasta el final del archivo.
+   ========================================================================== */
+:root {
+  --fuente-ui: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  --fondo: #f5f6f7;
+  --superficie: #ffffff;
+  --texto: #2b3440;
+  --texto-suave: #5b6672;
+  --texto-tenue: #8d97a1;
+  --borde: #e3e7ea;
+  --acento: #0aa1c8;           /* cian Kreston */
+  --acento-oscuro: #0789ab;
+  --acento-suave: #e3f5fa;
+  --verde-k: #21b3a8;
+  --enlace: #0789ab;
+  --marino: #2c3e50;           /* lateral */
+  --marino-alto: #0e3a4d;      /* bloque superior del lateral */
+  --lateral-texto: #e9eef2;
+  --lateral-suave: #aebbc6;
+  --lateral-linea: rgb(255 255 255 / .08);
+  --lateral-hover: rgb(255 255 255 / .07);
+  --fondo-lateral: var(--marino);
+  --sombra: 0 1px 3px rgb(16 42 60 / .06);
+  --alto-barra: 72px;
+  --radio: 4px;
+}
+[data-tema="oscuro"] {
+  --fondo: #141c24;
+  --superficie: #1c2731;
+  --texto: #e4e9ee;
+  --texto-suave: #a9b5c0;
+  --texto-tenue: #7d8a96;
+  --borde: #2b3946;
+  --acento: #33b9dd;
+  --acento-oscuro: #1aa3c9;
+  --acento-suave: #12313d;
+  --enlace: #5cc9e6;
+  --marino: #17222d;
+  --marino-alto: #0c2733;
+  --fondo-lateral: var(--marino);
+}
+
+/* Barra superior: bloque oscuro a la izquierda (como el perfil del portal) y zona blanca con el logo */
+.barra { padding: 0 20px 0 0; gap: 18px; background: var(--superficie); border-bottom: 1px solid var(--borde); box-shadow: 0 1px 4px rgb(16 42 60 / .06); }
+.marca {
+  align-self: stretch; width: var(--ancho-lateral); flex-shrink: 0;
+  padding: 0 18px; gap: 12px;
+  background: var(--marino-alto); color: #fff;
+}
+.marca-icono { background: var(--acento); color: #fff; border-radius: 50%; width: 38px; height: 38px; font-size: 1.25rem; }
+.marca-texto { display: flex; flex-direction: column; line-height: 1.15; }
+.marca-texto b { font-size: 1.05rem; font-weight: 500; }
+.marca-texto small { font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--acento); margin-top: 3px; }
+.logo-kreston { display: flex; align-items: center; gap: 4px; text-decoration: none; flex-shrink: 0; }
+.logo-kreston svg { width: 22px; height: 34px; }
+.logo-kreston span { display: flex; flex-direction: column; line-height: .95; font-family: "Helvetica Neue", Arial, sans-serif; }
+.logo-kreston b { font-size: 1.02rem; font-weight: 700; color: #1d9fd0; letter-spacing: -.01em; }
+.logo-kreston b + b { color: var(--verde-k); }
+.busqueda-barra input { border-radius: 4px; background: var(--fondo); height: 40px; }
+.busqueda-barra .lupa { top: 10px; }
+.boton-icono { border-radius: 4px; }
+
+/* Lateral azul marino */
+.lateral { background: var(--marino); border-right: 0; color: var(--lateral-texto); padding: 0 0 40px; box-shadow: inset 0 -3px 0 var(--acento); }
+.ir-a { padding: 16px 16px 14px; margin: 0; border-bottom: 1px solid var(--lateral-linea); background: rgb(0 0 0 / .12); }
+.ir-titulo { color: var(--lateral-suave); }
+.ir-fila select, .ir-fila input { border-radius: 4px; border-color: transparent; background: #fff; color: #2b3440; }
+[data-tema="oscuro"] .ir-fila select, [data-tema="oscuro"] .ir-fila input { background: #24323f; color: var(--texto); border-color: #34475a; }
+.boton-ir { border-radius: 4px; background: var(--acento); text-transform: uppercase; letter-spacing: .05em; font-size: .8rem; }
+.boton-ir:hover { background: var(--acento-oscuro); }
+.ir-error { color: #ffb4a8; }
+.accesos { padding: 0; margin: 0; gap: 0; border-bottom: 1px solid var(--lateral-linea); flex-direction: column; }
+.accesos a {
+  justify-content: flex-start; gap: 12px; padding: 14px 20px; border-radius: 0;
+  font-size: .95rem; color: var(--lateral-texto); border-bottom: 1px solid var(--lateral-linea);
+}
+.accesos a:last-child { border-bottom: 0; }
+.accesos a:hover { background: var(--lateral-hover); color: #fff; }
+.accesos svg { width: 18px; height: 18px; color: var(--lateral-suave); }
+
+/* Árbol dentro del lateral */
+.arbol { padding: 8px 8px 0; }
+.arbol summary { color: var(--lateral-texto); border-radius: 3px; }
+.arbol summary::before { border-left-color: var(--lateral-suave); }
+.arbol summary:hover, .arbol a:hover { background: var(--lateral-hover); }
+.arbol .materia > summary { color: var(--lateral-suave); padding: 12px 8px 8px; }
+.arbol .siglas { color: #5fd0ee; }
+.arbol .nombre-div { color: var(--lateral-suave); }
+.arbol .rama { border-left-color: var(--lateral-linea); }
+.arbol a { color: var(--lateral-suave); }
+.arbol a:hover { color: #fff; }
+.arbol a.activo { background: var(--acento); color: #fff; }
+.arbol a.con-titulo b { color: var(--lateral-texto); }
+.arbol a.activo b { color: #fff; }
+.arbol a.documento small, .arbol .proximamente { color: var(--lateral-suave); }
+.arbol a.con-nota::after { background: #5fd0ee; }
+.lateral::-webkit-scrollbar { width: 8px; }
+.lateral::-webkit-scrollbar-thumb { background: rgb(255 255 255 / .15); border-radius: 4px; }
+
+/* Pestañas: banda cian como "Lista de proyectos / Calendario" */
+.pestanas {
+  margin: 14px 28px 0; padding: 0 8px; min-height: 50px; align-items: stretch;
+  background: var(--acento); border: 0; border-radius: 3px;
+  top: calc(var(--alto-barra) + 14px); box-shadow: 0 -15px 0 0 var(--fondo);
+}
+.pestana {
+  height: auto; max-width: 220px; border: 0; border-radius: 0;
+  color: rgb(255 255 255 / .85); font-size: .8rem; text-transform: uppercase; letter-spacing: .07em;
+  border-bottom: 3px solid transparent;
+}
+.pestana:hover { background: rgb(255 255 255 / .08); color: #fff; }
+.pestana.activa { background: transparent; color: #fff; font-weight: 600; border-bottom-color: #fff; margin: 0; height: auto; }
+.pestana-cerrar { color: rgb(255 255 255 / .7); border-radius: 3px; }
+.pestana-cerrar:hover { background: rgb(255 255 255 / .18); color: #fff; }
+.pestana-nueva { align-self: center; margin: 0 0 0 4px; color: #fff; border-radius: 3px; }
+.pestana-nueva:hover:not(:disabled) { background: rgb(255 255 255 / .15); color: #fff; }
+
+/* Contenido en tarjeta blanca */
+.contenido { margin: 18px 28px 40px; padding: 30px 40px 60px; background: var(--superficie); border: 1px solid var(--borde); border-radius: 3px; box-shadow: var(--sombra); }
+.tarjeta { border-radius: 4px; }
+.tarjeta .siglas { color: var(--acento-oscuro); }
+[data-tema="oscuro"] .tarjeta .siglas { color: var(--acento); }
+.tarjeta, .navegacion-art a, .resultado a:hover, .indice .lista-art a { background: var(--fondo); }
+
+/* Botones con contorno cian y mayúsculas, como "AÑADIR PROYECTO" */
+.boton, .accion {
+  border: 1.5px solid var(--acento); color: var(--acento-oscuro); background: transparent;
+  border-radius: 4px; text-transform: uppercase; letter-spacing: .07em; font-size: .78rem; font-weight: 600;
+  box-shadow: 0 1px 3px rgb(10 161 200 / .12);
+}
+[data-tema="oscuro"] .boton, [data-tema="oscuro"] .accion { color: var(--acento); }
+.boton { padding: 10px 20px; }
+.boton:hover, .accion:hover { background: var(--acento); color: #fff; border-color: var(--acento); }
+.boton.primario { background: var(--acento); color: #fff; border-color: var(--acento); }
+.boton.primario:hover { background: var(--acento-oscuro); filter: none; }
+.chip { border-radius: 4px; }
+.insignia { border-radius: 3px; }
+.insignia.reforma { color: var(--acento-oscuro); }
+[data-tema="oscuro"] .insignia.reforma { color: var(--acento); }
+.dialogo { border-radius: 4px; }
+.dialogo h2 { color: var(--acento-oscuro); }
+.aviso { background: var(--marino); color: #fff; border-radius: 4px; }
+h1 { font-weight: 500; letter-spacing: -.01em; }
+.subtitulo-panel, .panel h2 { color: var(--acento-oscuro); }
+[data-tema="oscuro"] .subtitulo-panel, [data-tema="oscuro"] .panel h2 { color: var(--acento); }
+
+@media (max-width: 900px) {
+  .barra { padding: 0 12px; gap: 10px; }
+  .marca { width: auto; background: none; padding: 0; }
+  .marca-texto { display: none; }
+  .marca-icono { display: none; }
+  #boton-menu { color: var(--marino); }
+  [data-tema="oscuro"] #boton-menu { color: var(--texto); }
+  .pestanas { margin: 10px 10px 0; top: calc(var(--alto-barra) + 10px); box-shadow: 0 -11px 0 0 var(--fondo); }
+  .contenido { margin: 10px; padding: 20px 16px 48px; }
+}
+@media (max-width: 520px) { .logo-kreston span { display: none; } }
+@media print { .contenido { margin: 0; border: 0; box-shadow: none; } }

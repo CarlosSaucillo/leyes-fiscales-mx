@@ -225,7 +225,7 @@ function tarjetaLey(l) {
 }
 
 async function vistaInicio() {
-  document.title = "Legislación fiscal federal";
+  document.title = "Legislación fiscal · Kreston BSG";
   const catalogo = await cargarCatalogo();
   const recientes = almacen.historial().slice(0, 6);
   main.innerHTML = `
