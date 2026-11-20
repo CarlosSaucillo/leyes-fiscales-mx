@@ -600,10 +600,7 @@ a.chip { text-decoration: none; }
 .marca-texto b { font-size: 1.05rem; font-weight: 500; }
 .marca-texto small { font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--acento); margin-top: 3px; }
 .logo-kreston { display: flex; align-items: center; gap: 4px; text-decoration: none; flex-shrink: 0; }
-.logo-kreston svg { width: 22px; height: 34px; }
-.logo-kreston span { display: flex; flex-direction: column; line-height: .95; font-family: "Helvetica Neue", Arial, sans-serif; }
-.logo-kreston b { font-size: 1.02rem; font-weight: 700; color: #1d9fd0; letter-spacing: -.01em; }
-.logo-kreston b + b { color: var(--verde-k); }
+.logo-kreston img { height: 46px; width: auto; display: block; }
 .busqueda-barra input { border-radius: 4px; background: var(--fondo); height: 40px; }
 .busqueda-barra .lupa { top: 10px; }
 .boton-icono { border-radius: 4px; }
@@ -702,5 +699,5 @@ h1 { font-weight: 500; letter-spacing: -.01em; }
   .pestanas { margin: 10px 10px 0; top: calc(var(--alto-barra) + 10px); box-shadow: 0 -11px 0 0 var(--fondo); }
   .contenido { margin: 10px; padding: 20px 16px 48px; }
 }
-@media (max-width: 520px) { .logo-kreston span { display: none; } }
+@media (max-width: 520px) { .logo-kreston img { height: 36px; } }
 @media print { .contenido { margin: 0; border: 0; box-shadow: none; } }
