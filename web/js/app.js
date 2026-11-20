@@ -14,10 +14,10 @@ import {
   tituloUnidad, tituloCorto, etiquetaDivision, cargarCorrelacionesOficiales, leyDeId, cargarVersiones,
 } from "./datos.js";
 import { compararTextos } from "./diff.js";
-import { buscar, fragmento, resaltar, escapar, normalizar } from "./buscador.js";
+import { buscar, fragmento, resaltar, escapar, normalizar, textoPlano } from "./buscador.js";
 import * as almacen from "./almacen.js";
 import { iniciarPestanas, actualizarActiva } from "./pestanas.js";
-import { leerReferencia, claveArticulo } from "./ir.js";
+import { leerReferencia, claveArticulo, resolverSiglas } from "./ir.js";
 
 const $ = (sel, raiz = document) => raiz.querySelector(sel);
 const main = $("#contenido");
@@ -132,6 +132,11 @@ async function construirArbol() {
   const opciones = catalogo.map((l) => `<option value="${escapar(l.siglas)}">${escapar(l.siglas)}</option>`).join("");
   $("#ir-ley").innerHTML = opciones;
   $("#corr-ley").innerHTML = opciones;
+  const selEn = $("#busqueda-en");
+  selEn.insertAdjacentHTML("beforeend", catalogo.map((l) =>
+    `<option value="${escapar(l.siglas)}">Solo ${escapar(l.siglas)}</option>`).join(""));
+  selEn.value = localStorage.getItem("lf:buscarEn") || "";
+  if (selEn.selectedIndex < 0) selEn.value = "";
 }
 
 async function llenarRamaLey(detalle) {
@@ -142,6 +147,13 @@ async function llenarRamaLey(detalle) {
   cont.innerHTML = `<a href="#/${escapar(ley.siglas)}">Índice completo</a>` +
     ley.estructura.map((n) => nodoArbol(ley, n)).join("") + nodosDocumentos(ley);
   marcarNotasEnArbol();
+}
+
+/** Inicio del texto oficial del artículo (para saber de qué trata sin abrirlo). */
+function resumen(u, largo = 120) {
+  const primero = textoPlano(u.texto).split("\n").map((p) => p.trim()).find((p) => p && !/^\(.*DOF/i.test(p)) || "";
+  if (primero.length <= largo) return primero;
+  return primero.slice(0, primero.lastIndexOf(" ", largo)).replace(/[,;:]$/, "") + "…";
 }
 
 function nodoArbol(ley, nodo) {
@@ -155,7 +167,7 @@ function nodoArbol(ley, nodo) {
                  title="${escapar(u.titulo_regla || "")}"><b>${escapar(tituloCorto(u))}</b> ${escapar(u.titulo_regla || "")}${aviso}</a>`;
     }
     return `<a href="#/${escapar(ley.siglas)}/${escapar(claveUrl(u))}" data-id="${escapar(u.id)}"
-               title="${escapar(tituloUnidad(u))}">${escapar(tituloCorto(u))}</a>`;
+               title="${escapar(tituloUnidad(u) + (u.unidad === "articulo" ? " — " + resumen(u, 160) : ""))}">${escapar(tituloCorto(u))}</a>`;
   }).join("");
   const esTrans = nodo.nivel === "transitorios" || conTitulo;
   return `
@@ -272,6 +284,10 @@ function nodoIndice(ley, nodo) {
     if (u.titulo_regla && u.unidad !== "transitorio") {
       conTitulo = true;
       return `<a class="con-titulo" href="#/${escapar(ley.siglas)}/${escapar(claveUrl(u))}"><b>${escapar(tituloCorto(u))}</b> ${escapar(u.titulo_regla)}</a>`;
+    }
+    if (u.unidad === "articulo") {
+      conTitulo = true;
+      return `<a class="con-titulo" href="#/${escapar(ley.siglas)}/${escapar(claveUrl(u))}"><b>${escapar(tituloCorto(u))}</b> <span class="inicio-texto">${escapar(resumen(u))}</span></a>`;
     }
     return `<a href="#/${escapar(ley.siglas)}/${escapar(claveUrl(u))}">${escapar(tituloCorto(u))}</a>`;
   }).join("");
@@ -1007,39 +1023,53 @@ async function vistaBusqueda(params) {
   campoBusqueda.value = consulta;
   document.title = consulta ? `«${consulta}» — búsqueda` : "Búsqueda";
 
-  const chips = catalogo.map((l) => `
-    <label class="chip"><input type="checkbox" value="${escapar(l.siglas)}" ${!elegidas.length || elegidas.includes(l.siglas) ? "checked" : ""}>
-    ${escapar(l.siglas)}</label>`).join("");
+  const selEn = $("#busqueda-en");
+  selEn.value = elegidas.length === 1 ? elegidas[0] : elegidas.length ? selEn.value : "";
 
   main.innerHTML = `
     <h1>Búsqueda</h1>
-    <div class="filtros" role="group" aria-label="Filtrar por ley"><span class="titulo-filtro">Buscar en:</span>${chips}</div>
+    <div class="filtros" role="group" aria-label="Filtrar por ley"></div>
     <div id="zona-resultados"><p class="cargando">Preparando el índice de búsqueda…</p></div>`;
-
-  main.querySelectorAll(".filtros input").forEach((c) => c.addEventListener("change", () => {
-    const marcadas = [...main.querySelectorAll(".filtros input:checked")].map((x) => x.value);
-    const en = marcadas.length === catalogo.length ? "" : marcadas.join(",");
-    location.replace(rutaBusqueda(consulta, en));
-  }));
 
   const zona = $("#zona-resultados");
   const tituloPestana = consulta ? `«${consulta.length > 18 ? consulta.slice(0, 18) + "…" : consulta}»` : "Búsqueda";
   if (!consulta.trim()) {
     zona.innerHTML = `<p class="vacio">Escribe una o varias palabras en el buscador de arriba. Se ignoran acentos y mayúsculas;
-      "deduc" encuentra "deducción" y "deducciones". Para ir directo a un artículo escribe, por ejemplo, <kbd>LISR 27</kbd>.</p>`;
+      "deduc" encuentra "deducción" y "deducciones". Para buscar en una sola ley, elígela en el selector junto al buscador
+      o escribe sus siglas antes de las palabras, por ejemplo <kbd>LISR intereses</kbd>.
+      Para ir directo a un artículo escribe, por ejemplo, <kbd>LISR 27</kbd>.</p>`;
     return tituloPestana;
   }
 
   await cargarTodas();
-  const res = buscar(consulta, elegidas);
+  const todos = buscar(consulta);
+  const res = elegidas.length ? todos.filter((r) => elegidas.includes(r.ley)) : todos;
+
+  // Filtro por ley con el número de resultados de cada una. Un clic = solo esa ley; con una ya elegida, se suman o quitan.
+  const cuenta = new Map();
+  todos.forEach((r) => cuenta.set(r.ley, (cuenta.get(r.ley) || 0) + 1));
+  const chip = (valor, texto, n, activo) =>
+    `<button type="button" class="chip${activo ? " activo" : ""}" data-en="${escapar(valor)}" aria-pressed="${activo}">${escapar(texto)} <span class="cuenta">${n}</span></button>`;
+  const filtros = $(".filtros", main);
+  filtros.innerHTML = `<span class="titulo-filtro">Buscar en:</span>` + chip("", "Todas", todos.length, !elegidas.length) +
+    catalogo.filter((l) => cuenta.has(l.siglas) || elegidas.includes(l.siglas))
+      .map((l) => chip(l.siglas, l.siglas, cuenta.get(l.siglas) || 0, elegidas.includes(l.siglas))).join("");
+  filtros.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => {
+    const v = b.dataset.en;
+    let nuevas = [];
+    if (v) nuevas = !elegidas.length ? [v] : elegidas.includes(v) ? elegidas.filter((x) => x !== v) : [...elegidas, v];
+    location.replace(rutaBusqueda(consulta, nuevas.join(",")));
+  }));
+
   if (!res.length) {
-    zona.innerHTML = `<p class="vacio">Sin coincidencias para «${escapar(consulta)}». Prueba con menos palabras o con la raíz de la palabra.</p>`;
+    zona.innerHTML = `<p class="vacio">Sin coincidencias para «${escapar(consulta)}»${elegidas.length ? ` en ${escapar(elegidas.join(", "))}` : ""}.
+      Prueba con menos palabras o con la raíz de la palabra.</p>`;
     return tituloPestana;
   }
 
   const leyes = new Map(await Promise.all(catalogo.map(async (l) => [l.siglas, await cargarLey(l.siglas)])));
   let mostrados = 0;
-  zona.innerHTML = `<p class="resumen-busqueda">${res.length} resultado${res.length === 1 ? "" : "s"} para «${escapar(consulta)}»</p>
+  zona.innerHTML = `<p class="resumen-busqueda">${res.length} resultado${res.length === 1 ? "" : "s"} para «${escapar(consulta)}»${elegidas.length ? ` en ${escapar(elegidas.join(", "))}` : ""}</p>
     <ol class="resultados"></ol>`;
   const lista = $(".resultados", zona);
 
@@ -1084,8 +1114,22 @@ $("#form-busqueda").addEventListener("submit", async (e) => {
     campoBusqueda.blur();
     return;
   }
-  const { partes, params } = leerRuta();
-  location.hash = rutaBusqueda(texto, partes[0] === "buscar" ? params.get("en") || "" : "");
+  // "LISR intereses" → buscar "intereses" solo en la LISR
+  const catalogo = await cargarCatalogo();
+  const m = texto.match(/^(\S+)\s+(.+)$/);
+  const sig = m && resolverSiglas(m[1], catalogo);
+  if (sig && catalogo.some((l) => l.siglas === sig)) {
+    $("#busqueda-en").value = sig;
+    campoBusqueda.value = m[2];
+    location.hash = rutaBusqueda(m[2], sig);
+    return;
+  }
+  location.hash = rutaBusqueda(texto, $("#busqueda-en").value);
+});
+$("#busqueda-en").addEventListener("change", (e) => {
+  localStorage.setItem("lf:buscarEn", e.target.value);
+  if (leerRuta().partes[0] === "buscar") location.replace(rutaBusqueda(campoBusqueda.value, e.target.value));
+  else campoBusqueda.focus();
 });
 // Al entrar al buscador se empieza a preparar el índice de todas las leyes (mientras escribes)
 campoBusqueda.addEventListener("focus", () => { cargarTodas().catch(() => {}); }, { once: true });
@@ -1094,7 +1138,8 @@ campoBusqueda.addEventListener("input", () => {
   if (leerRuta().partes[0] !== "buscar") return;
   clearTimeout(espera);
   espera = setTimeout(() => {
-    location.replace(rutaBusqueda(campoBusqueda.value, leerRuta().params.get("en") || ""));
+    const { params } = leerRuta();
+    location.replace(rutaBusqueda(campoBusqueda.value, params.get("en") || ""));
   }, 250);
 });
 

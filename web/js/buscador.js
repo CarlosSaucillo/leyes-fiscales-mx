@@ -58,16 +58,21 @@ export function buscar(consulta, leyesFiltro = []) {
   // Si exigir todas las palabras no da nada, se relaja a "cualquiera"
   if (!res.length) res = indice.search(q, { filter: filtro, combineWith: "OR" });
 
-  // Premiar la frase exacta, y más si aparece al inicio del artículo (donde suele definirse el tema)
-  const frase = normalizar(q).replace(/\s+/g, " ");
-  if (frase.includes(" ")) {
-    for (const r of res) {
-      const t = textoNormalizado.get(r.id) || "";
-      const pos = t.indexOf(frase);
-      if (pos >= 0) r.score *= pos < 300 ? 4 : 2;
-    }
-    res.sort((a, b) => b.score - a.score);
+  // Premiar los artículos que tratan del tema: la frase aparece al inicio (donde suele definirse el tema),
+  // y más aún si ahí se define ("se consideran intereses…", "se entiende por…"). En cualquier parte, solo un poco.
+  const frase = normalizar(q).replace(/\s+/g, " ").trim();
+  const raiz = frase.length > 5 ? frase.slice(0, -1) : frase; // "intereses" ≈ "interes"
+  const esc = raiz.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const reDef = new RegExp(`(se considera[n]?|se entiende[n]? (por|que)|se entendera[n]? (por|que)|para los efectos de [^.]{0,80})[^.]{0,60}${esc}`);
+  for (const r of res) {
+    const t = textoNormalizado.get(r.id) || "";
+    const pos = t.indexOf(raiz);
+    if (pos < 0) continue;
+    const inicio = t.slice(0, 260);
+    if (pos < 260) r.score *= reDef.test(inicio) ? 6 : 2.5;
+    else if (frase.includes(" ")) r.score *= 1.6;
   }
+  res.sort((a, b) => b.score - a.score);
   return res;
 }
 
