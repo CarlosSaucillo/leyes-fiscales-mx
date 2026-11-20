@@ -167,7 +167,7 @@ function nodoArbol(ley, nodo) {
                  title="${escapar(u.titulo_regla || "")}"><b>${escapar(tituloCorto(u))}</b> ${escapar(u.titulo_regla || "")}${aviso}</a>`;
     }
     return `<a href="#/${escapar(ley.siglas)}/${escapar(claveUrl(u))}" data-id="${escapar(u.id)}"
-               title="${escapar(tituloUnidad(u) + (u.unidad === "articulo" ? " — " + resumen(u, 160) : ""))}">${escapar(tituloCorto(u))}</a>`;
+               title="${escapar(tituloUnidad(u) + (u.unidad === "articulo" ? " — " + (u.descripcion_k ? u.descripcion_k + " (descripción Kreston)" : resumen(u, 160)) : ""))}">${escapar(tituloCorto(u))}</a>`;
   }).join("");
   const esTrans = nodo.nivel === "transitorios" || conTitulo;
   return `
@@ -287,7 +287,7 @@ function nodoIndice(ley, nodo) {
     }
     if (u.unidad === "articulo") {
       conTitulo = true;
-      return `<a class="con-titulo" href="#/${escapar(ley.siglas)}/${escapar(claveUrl(u))}"><b>${escapar(tituloCorto(u))}</b> <span class="inicio-texto">${escapar(resumen(u))}</span></a>`;
+      return `<a class="con-titulo" href="#/${escapar(ley.siglas)}/${escapar(claveUrl(u))}"><b>${escapar(tituloCorto(u))}</b> ${u.descripcion_k ? `<span class="desc-k" title="Descripción Kreston (no oficial)">${escapar(u.descripcion_k)}</span>` : `<span class="inicio-texto">${escapar(resumen(u))}</span>`}</a>`;
     }
     return `<a href="#/${escapar(ley.siglas)}/${escapar(claveUrl(u))}">${escapar(tituloCorto(u))}</a>`;
   }).join("");
@@ -343,6 +343,8 @@ async function vistaLey(siglas) {
     ${infoPendientes(ley)}
     <p><a href="#/reformas/${escapar(ley.siglas)}">Ver ${ley.tipo === "resolucion" ? "modificaciones" : "reformas"} por fecha →</a></p>
     <h2>Índice</h2>
+    ${ley.unidades.some((u) => u.descripcion_k) ? `<p class="ayuda">Junto a cada artículo se ve cómo empieza su texto oficial. Las descripciones
+      marcadas con <span class="desc-k"></span> las redactó Kreston BSG para orientar la consulta: <strong>no son texto oficial</strong>.</p>` : ""}
     <div class="indice">${ley.estructura.map((n) => nodoIndice(ley, n)).join("")}</div>
     ${AVISO_LEGAL}`;
   marcarEnArbol(ley.siglas, null);
@@ -748,6 +750,7 @@ async function vistaUnidad(siglas, clave, consulta) {
         <h1>${escapar(tituloUnidad(u))} <span class="siglas-titulo">${escapar(ley.siglas)}</span></h1>
         ${u.titulo_decreto ? `<p class="subtitulo">${escapar(u.titulo_decreto)}</p>` : ""}
         ${u.titulo_regla && u.unidad === "regla" ? `<p class="epigrafe">${escapar(u.titulo_regla)}</p>` : ""}
+        ${u.descripcion_k ? `<p class="descripcion-k"><span class="marca-k" title="Descripción redactada por Kreston BSG para orientar la consulta. No es texto oficial.">Descripción Kreston · no oficial</span> ${escapar(u.descripcion_k)}</p>` : ""}
         <div class="insignias">
           ${insignias}
           <a class="insignia" href="${escapar(pdfPagina)}" target="_blank" rel="noopener">${ICONO.doc} Texto oficial${u.pagina ? ` (pág. ${u.pagina})` : ""}</a>
@@ -1080,7 +1083,7 @@ async function vistaBusqueda(params) {
       const u = ley.porId.get(r.id);
       const ruta = u.ruta.map(etiquetaDivision).join(" › ");
       return `<li class="resultado"><a href="#/${escapar(ley.siglas)}/${escapar(claveUrl(u))}?q=${encodeURIComponent(consulta)}">
-        <div class="titulo-res"><span class="siglas">${escapar(ley.siglas)}</span>${escapar(tituloUnidad(u))}${u.titulo_regla && u.unidad === "regla" ? ` <span class="epigrafe-res">${escapar(u.titulo_regla)}</span>` : ""}</div>
+        <div class="titulo-res"><span class="siglas">${escapar(ley.siglas)}</span>${escapar(tituloUnidad(u))}${u.titulo_regla && u.unidad === "regla" ? ` <span class="epigrafe-res">${escapar(u.titulo_regla)}</span>` : ""}${u.descripcion_k ? ` <span class="epigrafe-res desc-k">${escapar(u.descripcion_k)}</span>` : ""}</div>
         <div class="ruta-res">${escapar(ruta)}</div>
         <div class="fragmento">${fragmento(u.texto, r.terms, consulta)}</div></a></li>`;
     }).join(""));

@@ -30,13 +30,22 @@ export async function infoLey(siglas) {
   return cat.find((l) => l.siglas.toLowerCase() === String(siglas).toLowerCase()) || null;
 }
 
+/** Descripciones breves redactadas por Kreston (no oficiales). Si el archivo falta, no pasa nada. */
+let descripcionesPromesa = null;
+function cargarDescripciones() {
+  descripcionesPromesa ??= leerJSON("data/descripciones_kreston.json").catch(() => ({}));
+  return descripcionesPromesa;
+}
+
 /** Devuelve la ley con índices auxiliares: porId (Map) y orden (array de unidades). */
 export function cargarLey(siglas) {
   if (!leyes.has(siglas)) {
     const p = (async () => {
       const info = await infoLey(siglas);
       if (!info) throw new Error(`No existe el ordenamiento "${siglas}".`);
-      const datos = await leerJSON(`data/${info.archivo}`);
+      const [datos, desc] = await Promise.all([leerJSON(`data/${info.archivo}`), cargarDescripciones()]);
+      const propias = desc[siglas] || {};
+      datos.unidades.forEach((u) => { if (propias[u.id]) u.descripcion_k = propias[u.id]; });
       const ley = {
         ...datos.ley,
         unidades: datos.unidades,

@@ -1,0 +1,20 @@
+{
+  "_nota": "Descripciones breves redactadas por Kreston BSG para orientar la consulta. NO son texto oficial ni forman parte de la ley. Clave = id del artículo.",
+  "_estado": "Muestra para revisión (LISR: Título I y Título IV, Capítulo VI). Redactada el 2026-11-20; pendiente de revisión por la firma.",
+  "LISR": {
+    "lisr-1": "Quiénes pagan ISR: residentes en México y residentes en el extranjero, con o sin establecimiento permanente",
+    "lisr-2": "Establecimiento permanente: concepto, agentes dependientes e ingresos atribuibles",
+    "lisr-3": "Actividades preparatorias o auxiliares que no constituyen establecimiento permanente",
+    "lisr-4": "Requisitos para aplicar los tratados para evitar la doble tributación",
+    "lisr-4-a": "Entidades y figuras jurídicas extranjeras transparentes: tributan como personas morales",
+    "lisr-4-b": "ISR por ingresos obtenidos a través de entidades y figuras jurídicas extranjeras",
+    "lisr-5": "Acreditamiento del ISR pagado en el extranjero (directo y por dividendos) y sus límites",
+    "lisr-6": "Ajuste y actualización de valores con el INPC: factores de ajuste y de actualización",
+    "lisr-7": "Definiciones: persona moral, acciones, sistema financiero, previsión social y depositarios de valores",
+    "lisr-8": "Concepto de intereses y operaciones con tratamiento de interés (incluye ganancia o pérdida cambiaria)",
+    "lisr-133": "Personas físicas: qué son ingresos por intereses (incluye retiros de seguros y de aportaciones voluntarias)",
+    "lisr-134": "Personas físicas: acumulación del interés real, ajuste por inflación y pérdida por intereses",
+    "lisr-135": "Retención del ISR por quien paga intereses y opción de considerarla pago definitivo",
+    "lisr-136": "Obligaciones de quienes reciben intereses y de quienes los pagan"
+  }
+}

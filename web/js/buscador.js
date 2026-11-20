@@ -41,7 +41,7 @@ alCargarLey((ley) => {
   indexadas.add(ley.siglas);
   ley.unidades.forEach((u) => textoNormalizado.set(u.id, normalizar(textoPlano(u.texto)).replace(/\s+/g, " ")));
   indice.addAll(ley.unidades.map((u) => ({
-    id: u.id, ley: u.ley, numero: u.numero, unidad: u.unidad, titulo: u.titulo_regla || "", texto: textoPlano(u.texto),
+    id: u.id, ley: u.ley, numero: u.numero, unidad: u.unidad, titulo: u.titulo_regla || u.descripcion_k || "", texto: textoPlano(u.texto),
     ruta: u.ruta.map((r) => `${r.etiqueta} ${r.nombre || ""}`).join(" "),
   })));
 });

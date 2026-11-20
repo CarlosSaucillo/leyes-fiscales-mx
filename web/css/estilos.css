@@ -715,3 +715,13 @@ h1 { font-weight: 500; letter-spacing: -.01em; }
 .chip.activo .cuenta { opacity: .9; }
 .indice .lista-reglas .inicio-texto { color: var(--texto-tenue); }
 @media (max-width: 520px) { #busqueda-en { display: none; } .busqueda-barra input { border-radius: 4px; } }
+
+/* ---------- Descripciones Kreston (no oficiales) ---------- */
+.descripcion-k { margin: 2px 0 8px; font-size: 1.02rem; color: var(--texto-suave); }
+.marca-k {
+  display: inline-block; margin-right: 6px; padding: 1px 7px; border-radius: 3px; vertical-align: 1px;
+  font-size: .66rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--verde-k); border: 1px solid currentColor; cursor: help;
+}
+.desc-k { color: var(--texto-suave); }
+.desc-k::after { content: " K"; font-size: .62rem; font-weight: 700; color: var(--verde-k); vertical-align: 1px; }
